@@ -65,7 +65,7 @@ for ((i=0; i<${#steps[@]}; i++)) ; do
 	    fi
 	    ;;
 	install-patched-ruby)
-	    doit "rvm $DEBUG install ${rvm_name} --patch patches/ruby-1.9.3-combined.patch%1" 
+	    doit "rvm $DEBUG --verify-downloads 1 install ${rvm_name} --patch patches/ruby-1.9.3-combined.patch%1" 
 	    ;;
 	# install-gem)
 	#     source ${rvm_path}/scripts/rvm
