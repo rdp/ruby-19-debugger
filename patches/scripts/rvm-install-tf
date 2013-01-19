@@ -35,7 +35,7 @@ doit() {
     }
 }
 
-branch_sans_ruby=1.9.3-p327
+branch_sans_ruby=1.9.3-p374
 rvm_name=${branch_sans_ruby}
 rvm_name=${branch_sans_ruby}-ndebugger
 
