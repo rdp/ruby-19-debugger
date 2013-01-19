@@ -29,11 +29,13 @@ tar -xzf $tar_file || {
 }
 
 ruby_debugger_dir="${ruby_dir}-debugger"
-mv -v $ruby_dir $ruby_debugger_dir 
-(cd $ruby_debugger_dir && \
+# mv -v $ruby_dir $ruby_debugger_dir 
+# (cd $ruby_debugger_dir && \
+(cd $ruby_dir && \
     ${patch} -p1 < ${dirname}/../ruby-1.9.3-combined.patch && 
-    cd .. && tar -czf ${ruby_debugger_dir}.tar.gz $ruby_debugger_dir)
+    cd .. && tar -czf ${ruby_debugger_dir}.tar.gz $ruby_dir)
 rc=$?
-if (( $rc == 0 ) ; then
-    rm -fr $ruby_debugger_dir
+if (( $rc == 0 )) ; then
+    rm -fr $ruby_dir
+fi
 exit $?

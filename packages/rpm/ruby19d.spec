@@ -2,7 +2,7 @@
 %define rubyminorver p374
 
 Name:ruby19d
-Version:%{rubyver}%{rubyminorver}frame
+Version:%{rubyver}%{rubyminorver}
 Release:1%{?dist}
 License:Ruby License/GPL - see COPYING
 URL:http://www.ruby-lang.org/
@@ -80,8 +80,8 @@ relink_ruby18() {
 	    if [[ -x $PROG ]] ; then 
 		mv $PROG $PROG18
 		alternatives --install $PROG $prog $PROG18 10
+		slaves="--slave $PROG $prog $PROG18 $slaves"
 	    fi
-	    slaves="--slave $PROG $prog $PROG18 $slaves"
 	done
 
 	PROG=/usr/bin/ruby
@@ -127,7 +127,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_prefix}/share/
 
 %changelog
-* Tue Jan 19 2012 Rocky Bernstein <rockyb@rubyforge.org> 1.9.3-p374-debugger-1
+* Tue Jan 19 2013 Rocky Bernstein <rockyb@rubyforge.org> 1.9.3-p374-debugger-1
 - Use alternatives and --slave and update to p374
 
 * Tue Dec 25 2012 Rocky Bernstein <rockyb@rubyforge.org> 1.9.3-p327-debugger
