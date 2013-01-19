@@ -1,0 +1,19 @@
+Source: ruby19d
+Maintainer: Rocky Bernstein <rockyb@rubyforge.org>
+Section: misc
+Priority: optional
+Standards-Version: 3.9.2
+Build-Depends: debhelper (>= 8)
+
+Package: ruby19d
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libffi6
+Description: Ruby Programming Language with additional support for debuggers
+ Ruby is the interpreted scripting language for quick and easy
+ object-oriented programming.  To this, this package adds run-time
+ introspection of the call stack and inspection and stepping through
+ instruction sequences which make it possible to write powerful
+ debuggers such as trepanning. 
+ .
+ See http://github.com/rocky/trepanning.
+

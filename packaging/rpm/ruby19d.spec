@@ -8,23 +8,22 @@ License:Ruby License/GPL - see COPYING
 URL:http://www.ruby-lang.org/
 Provides:       ruby(abi) = 1.9
 BuildRoot:%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires:readline readline-devel ncurses ncurses-devel gdbm gdbm-devel glibc-devel gcc unzip openssl-devel bison
+BuildRequires:readline readline-devel ncurses ncurses-devel gdbm gdbm-devel glibc-devel gcc unzip openssl-devel bison make ruby
 Source0:https://ruby-19-debugger.googlecode.com/files/ruby-%{rubyver}-%{rubyminorver}-debugger.tar.gz
-Summary:An interpreter of object-oriented scripting language
+Summary:Ruby Programming Language with additional support for debuggers
 Group:Development/Languages
 Requires(preun): %{_sbindir}/alternatives, /sbin/install-info, dev
 Requires(posttrans): %{_sbindir}/alternatives
 Requires(post): /sbin/install-info, dev
 
-%description
-Ruby is the interpreted scripting language for quick and easy
-object-oriented programming.  It has many features to process text
-files and to do system management tasks (as in Perl).  It is simple,
-straight-forward, and extensible.
+%description 
+Ruby is the interpreted scripting language for quick and
+easy object-oriented programming.  This package adds to this run-time
+introspection of the call stack and inspection and stepping through
+instruction sequences which make it possible to write powerful
+debuggers such as trepanning.
 
-The for this build has additional patches to support debuggers,
-trepanning (http://github.com/rocky/trepanning) in particular. 
-The patches add extensive run-time introspection.
+See http://github.com/rocky/trepanning.
 %prep
 %setup -n ruby-%{rubyver}-%{rubyminorver}
 %build
