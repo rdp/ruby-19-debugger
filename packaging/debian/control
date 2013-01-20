@@ -7,7 +7,7 @@ Build-Depends: debhelper (>= 8)
 
 Package: ruby19d
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libffi6
+Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Ruby Programming Language with additional support for debuggers
  Ruby is the interpreted scripting language for quick and easy
  object-oriented programming.  To this, this package adds run-time
