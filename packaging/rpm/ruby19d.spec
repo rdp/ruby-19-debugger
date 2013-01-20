@@ -3,7 +3,7 @@
 
 Name:ruby19d
 Version:%{rubyver}%{rubyminorver}
-Release:1%{?dist}
+Release:2%{?dist}
 License:Ruby License/GPL - see COPYING
 URL:http://www.ruby-lang.org/
 Provides:       ruby(abi) = 1.9
@@ -51,69 +51,6 @@ for prog in erb gem irb rake rdoc ri ruby testrb; do
     alternatives --remove $prog %{_bindir}/${prog}19d || :
 done
 
-%posttrans
-RUBY_PROG=${RUBY_PROG:-/usr/bin/ruby}
-
-need_relink() {
-    if [[ -x $RUBY_PROG  && -f $RUBY_PROG ]] ; then 
-        $RUBY_PROG -v | grep '^ruby 1\.8\.'
-        if (( $? == 0 )) ; then
-                return 0
-                else
-                # echo "Don't have 1.8.x"
-                return 1
-                fi
-    else
-        # echo "Can't find $RUBY_PROG"
-        return 2
-    fi
-}
-
-relink_ruby18() {
-    output=$(need_relink)
-    if (( $? == 0 )) ; then
-        slaves=''
-        for prog in erb gem irb rake rdoc ri ruby testrb; do
-            PROG=/usr/bin/$prog
-            PROG18=${PROG}18
-            if [[ -x $PROG ]] ; then 
-                mv $PROG $PROG18
-                alternatives --install $PROG $prog $PROG18 10
-                slaves="--slave $PROG $prog $PROG18 $slaves"
-            fi
-        done
-        
-        PROG=/usr/bin/ruby
-        PROG18=${PROG}18
-        if [[ -x $PROG ]] ; then 
-            mv $PROG $PROG18
-            alternatives --install $PROG $prog $PROG18 10 ${slaves}
-        fi
-
-    fi
-}
-
-install_alternatives() {
-    relink_ruby18
-    slaves=''
-    for prog in erb gem irb rake rdoc ri ruby testrb; do
-        PROG=/usr/bin/$prog
-        PROG19=${PROG}19d
-        if [[ -x $PROG19 ]] ; then 
-            alternatives --install $PROG $prog $PROG19 81
-            slaves="--slave $PROG $prog $PROG19 $slaves"
-        fi
-        PROG=/usr/bin/ruby
-        PROG19=${PROG}19
-        if [[ -x $PROG ]] ; then 
-            PROG=$PROG19
-            alternatives --install $PROG $prog $PROG19 81 ${slaves}
-        fi
-    done
-}
-
-install_alternatives
-
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -126,8 +63,11 @@ rm -rf $RPM_BUILD_ROOT
 %{_prefix}/share/
 
 %changelog
+* Tue Jan 20 2013 Rocky Bernstein <rockyb@rubyforge.org> 1.9.3-p374-debugger-2
+- Remove "alternatives" code. For now it is a separate program.
+
 * Tue Jan 19 2013 Rocky Bernstein <rockyb@rubyforge.org> 1.9.3-p374-debugger-1
-- Use alternatives and --slave and update to p374
+- Use "alternatives" and "--slave" option and update to p374
 
 * Tue Dec 25 2012 Rocky Bernstein <rockyb@rubyforge.org> 1.9.3-p327-debugger
 - Port to use debugger patches
