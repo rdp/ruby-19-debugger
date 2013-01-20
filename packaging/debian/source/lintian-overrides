@@ -1,0 +1,15 @@
+ruby19d source: package-needs-versioned-debhelper-build-depends 9
+ruby19d source: changelog-should-mention-nmu
+ruby19d source: source-nmu-has-incorrect-version-number
+ruby19d source: no-debian-copyright
+ruby19d source: package-name-doesnt-match-sonames libruby1.9
+ruby19d source: new-package-should-close-itp-bug
+ruby19d source: no-copyright-file
+ruby19d source: missing-pre-dependency-on-multiarch-support
+ruby19d source: image-file-in-usr-lib 
+ruby19d source: binary-without-manpage
+ruby19d source: unusual-interpreter
+ruby19d source: script-not-executable
+ruby19d source: ruby-script-but-no-ruby-dep
+ruby19d source: non-dev-pkg-with-shlib-symlink
+
