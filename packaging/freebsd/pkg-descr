@@ -1,0 +1,11 @@
+Ruby is the interpreted scripting language for quick and
+easy object-oriented programming.  
+
+This patch adds additional run-time support to enable high-quality
+debuggers.
+
+Author:	Matsumoto "matz" Yukihiro <matz@zetabits.com>
+Debugger Patches: Rocky Bernstein rockyb@rubyforge.org
+
+WWW:	http://www.ruby-lang.org/en/
+WWW:	http://github.com/rocky/rb-trepannning
