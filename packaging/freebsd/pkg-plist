@@ -12,238 +12,38 @@ bin/ruby%%RUBY_SUFFIX%%
 %%IF_DEFAULT%%bin/ruby
 bin/testrb%%RUBY_SUFFIX%%
 %%IF_DEFAULT%%bin/testrb
-lib/lib%%RUBY_NAME%%-static.a
-lib/lib%%RUBY_NAME%%.so
-lib/lib%%RUBY_NAME%%.so.%%RUBY_SHLIBVER%%
+lib/libruby19d-static.a
+lib/libruby19d.so
+lib/libruby19d.so.%%RUBY_SHLIBVER%%
 libdata/pkgconfig/ruby-1.9d.pc
-include/ruby-1.9/%%RUBY_ARCH%%/ruby/config.h
-include/ruby-1.9/ruby/backward/classext.h
-include/ruby-1.9/ruby/backward/rubyio.h
-include/ruby-1.9/ruby/backward/rubysig.h
-include/ruby-1.9/ruby/backward/st.h
-include/ruby-1.9/ruby/backward/util.h
-include/ruby-1.9/ruby/defines.h
-include/ruby-1.9/ruby/digest.h
-include/ruby-1.9/ruby/dl.h
-include/ruby-1.9/ruby/encoding.h
-include/ruby-1.9/ruby/intern.h
-include/ruby-1.9/ruby/io.h
-include/ruby-1.9/ruby/missing.h
-include/ruby-1.9/ruby/oniguruma.h
-include/ruby-1.9/ruby/re.h
-include/ruby-1.9/ruby/regex.h
-include/ruby-1.9/ruby/ruby.h
-include/ruby-1.9/ruby/st.h
-include/ruby-1.9/ruby/subst.h
-include/ruby-1.9/ruby/util.h
-include/ruby-1.9/ruby/version.h
-include/ruby-1.9/ruby/vm.h
-include/ruby-1.9/ruby.h
-@dirrm include/ruby-1.9/%%RUBY_ARCH%%/ruby
-@dirrm include/ruby-1.9/%%RUBY_ARCH%%
-@dirrm include/ruby-1.9/ruby/backward
-@dirrm include/ruby-1.9/ruby
-@dirrm include/ruby-1.9
-%%PORTDOCS%%%%RUBY_DOCDIR%%/COPYING
-%%PORTDOCS%%%%RUBY_DOCDIR%%/COPYING.ja
-%%PORTDOCS%%%%RUBY_DOCDIR%%/ChangeLog
-%%PORTDOCS%%%%RUBY_DOCDIR%%/ChangeLog-1.8.0
-%%PORTDOCS%%%%RUBY_DOCDIR%%/ChangeLog-1.9.3
-%%PORTDOCS%%%%RUBY_DOCDIR%%/ChangeLog-YARV
-%%PORTDOCS%%%%RUBY_DOCDIR%%/LEGAL
-%%PORTDOCS%%%%RUBY_DOCDIR%%/NEWS-1.8.7
-%%PORTDOCS%%%%RUBY_DOCDIR%%/NEWS-1.9.1
-%%PORTDOCS%%%%RUBY_DOCDIR%%/NEWS-1.9.2
-%%PORTDOCS%%%%RUBY_DOCDIR%%/README
-%%PORTDOCS%%%%RUBY_DOCDIR%%/README.EXT
-%%PORTDOCS%%%%RUBY_DOCDIR%%/README.EXT.ja
-%%PORTDOCS%%%%RUBY_DOCDIR%%/README.ja
-%%PORTDOCS%%%%RUBY_DOCDIR%%/bigdecimal/bigdecimal_en.html
-%%PORTDOCS%%%%RUBY_DOCDIR%%/bigdecimal/bigdecimal_ja.html
-%%PORTDOCS%%%%RUBY_DOCDIR%%/etc.rd
-%%PORTDOCS%%%%RUBY_DOCDIR%%/etc.rd.ja
-%%PORTDOCS%%%%RUBY_DOCDIR%%/forwardable.rd
-%%PORTDOCS%%%%RUBY_DOCDIR%%/forwardable.rd.ja
-%%PORTDOCS%%%%RUBY_DOCDIR%%/images/boottime-classes.png
-%%PORTDOCS%%%%RUBY_DOCDIR%%/irb/irb-tools.rd.ja
-%%PORTDOCS%%%%RUBY_DOCDIR%%/irb/irb.rd
-%%PORTDOCS%%%%RUBY_DOCDIR%%/irb/irb.rd.ja
-%%PORTDOCS%%%%RUBY_DOCDIR%%/pty/README
-%%PORTDOCS%%%%RUBY_DOCDIR%%/pty/README.expect
-%%PORTDOCS%%%%RUBY_DOCDIR%%/pty/README.expect.ja
-%%PORTDOCS%%%%RUBY_DOCDIR%%/pty/README.ja
-%%PORTDOCS%%%%RUBY_DOCDIR%%/re.rdoc
-%%PORTDOCS%%%%RUBY_DOCDIR%%/readline/README
-%%PORTDOCS%%%%RUBY_DOCDIR%%/readline/README.ja
-%%PORTDOCS%%%%RUBY_DOCDIR%%/ripper/README
-%%PORTDOCS%%%%RUBY_DOCDIR%%/rubygems/ChangeLog
-%%PORTDOCS%%%%RUBY_DOCDIR%%/rubygems/History.txt
-%%PORTDOCS%%%%RUBY_DOCDIR%%/rubygems/LICENSE.txt
-%%PORTDOCS%%%%RUBY_DOCDIR%%/rubygems/README
-%%PORTDOCS%%%%RUBY_DOCDIR%%/shell.rd
-%%PORTDOCS%%%%RUBY_DOCDIR%%/shell.rd.ja
-%%PORTDOCS%%%%RUBY_DOCDIR%%/stringio/README
-%%PORTDOCS%%%%RUBY_DOCDIR%%/syslog/syslog.txt
-%%PORTDOCS%%@dirrm %%RUBY_DOCDIR%%/syslog
-%%PORTDOCS%%@dirrm %%RUBY_DOCDIR%%/stringio
-%%PORTDOCS%%@dirrm %%RUBY_DOCDIR%%/rubygems
-%%PORTDOCS%%@dirrm %%RUBY_DOCDIR%%/ripper
-%%PORTDOCS%%@dirrm %%RUBY_DOCDIR%%/readline
-%%PORTDOCS%%@dirrm %%RUBY_DOCDIR%%/pty
-%%PORTDOCS%%@dirrm %%RUBY_DOCDIR%%/irb
-%%PORTDOCS%%@dirrm %%RUBY_DOCDIR%%/images
-%%PORTDOCS%%@dirrm %%RUBY_DOCDIR%%/bigdecimal
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/README
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/bigdecimal/linear.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/bigdecimal/nlsolve.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/bigdecimal/pi.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/biorhythm.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/cal.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/cbreak.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/clnt.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/coverage.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/curses/hello.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/curses/rain.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/curses/view.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/curses/view2.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/dir.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/README.rd
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/README.rd.ja
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/darray.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/darrayc.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/dbiff.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/dcdbiff.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/dchatc.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/dchats.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/dhasen.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/dhasenc.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/dlogc.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/dlogd.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/dqin.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/dqlib.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/dqout.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/dqueue.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/drbc.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/drbch.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/drbm.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/drbmc.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/drbs-acl.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/drbs.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/drbssl_c.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/drbssl_s.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/extserv_test.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/gw_ct.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/gw_cu.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/gw_s.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/holderc.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/holders.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/http0.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/http0serv.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/name.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/namec.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/old_tuplespace.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/rinda_ts.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/rindac.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/rindas.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/ring_echo.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/ring_inspect.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/ring_place.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/simpletuple.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/speedc.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/drb/speeds.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/dualstack-fetch.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/dualstack-httpd.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/eval.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/export.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/exyacc.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/fact.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/fib.awk
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/fib.pl
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/fib.py
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/fib.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/fib.scm
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/freq.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/from.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/fullpath.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/less.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/list.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/list2.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/list3.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/logger/app.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/logger/log.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/logger/shifting.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/mine.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/mkproto.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/mpart.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/observ.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/occur.pl
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/occur.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/occur2.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/openssl/c_rehash.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/openssl/cert2text.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/openssl/certstore.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/openssl/cipher.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/openssl/crlstore.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/openssl/echo_cli.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/openssl/echo_svr.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/openssl/gen_csr.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/openssl/smime_read.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/openssl/smime_write.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/openssl/wget.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/optparse/opttest.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/optparse/subcommand.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/philos.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/pi.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/pty/expect_sample.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/pty/script.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/pty/shl.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/rcs.awk
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/rcs.dat
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/rcs.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/rdoc/markup/rdoc2latex.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/rdoc/markup/sample.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/ripper/ruby2html.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/ripper/strip-comment.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/rss/blend.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/rss/convert.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/rss/list_description.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/rss/re_read.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/rss/rss_recent.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/sieve.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/svr.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/test.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/testunit/adder.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/testunit/subtracter.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/testunit/tc_adder.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/testunit/tc_subtracter.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/testunit/ts_examples.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/time.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/timeout.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/trojan.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/tsvr.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/uumerge.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/webrick/demo-app.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/webrick/demo-multipart.cgi
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/webrick/demo-servlet.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/webrick/demo-urlencoded.cgi
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/webrick/hello.cgi
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/webrick/hello.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/webrick/httpd.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/webrick/httpproxy.rb
-%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%/webrick/httpsd.rb
-%%PORTDOCS%%@dirrm %%RUBY_EXAMPLESDIR%%/webrick
-%%PORTDOCS%%@dirrm %%RUBY_EXAMPLESDIR%%/testunit
-%%PORTDOCS%%@dirrm %%RUBY_EXAMPLESDIR%%/rss
-%%PORTDOCS%%@dirrm %%RUBY_EXAMPLESDIR%%/ripper
-%%PORTDOCS%%@dirrm %%RUBY_EXAMPLESDIR%%/rdoc/markup
-%%PORTDOCS%%@dirrm %%RUBY_EXAMPLESDIR%%/rdoc
-%%PORTDOCS%%@dirrm %%RUBY_EXAMPLESDIR%%/pty
-%%PORTDOCS%%@dirrm %%RUBY_EXAMPLESDIR%%/optparse
-%%PORTDOCS%%@dirrm %%RUBY_EXAMPLESDIR%%/openssl
-%%PORTDOCS%%@dirrm %%RUBY_EXAMPLESDIR%%/logger
-%%PORTDOCS%%@dirrm %%RUBY_EXAMPLESDIR%%/drb
-%%PORTDOCS%%@dirrm %%RUBY_EXAMPLESDIR%%/curses
-%%PORTDOCS%%@dirrm %%RUBY_EXAMPLESDIR%%/bigdecimal
+include/ruby-1.9d/%%RUBY_ARCH%%/ruby/config.h
+include/ruby-1.9d/ruby/backward/classext.h
+include/ruby-1.9d/ruby/backward/rubyio.h
+include/ruby-1.9d/ruby/backward/rubysig.h
+include/ruby-1.9d/ruby/backward/st.h
+include/ruby-1.9d/ruby/backward/util.h
+include/ruby-1.9d/ruby/defines.h
+include/ruby-1.9d/ruby/digest.h
+include/ruby-1.9d/ruby/dl.h
+include/ruby-1.9d/ruby/encoding.h
+include/ruby-1.9d/ruby/intern.h
+include/ruby-1.9d/ruby/io.h
+include/ruby-1.9d/ruby/missing.h
+include/ruby-1.9d/ruby/oniguruma.h
+include/ruby-1.9d/ruby/re.h
+include/ruby-1.9d/ruby/regex.h
+include/ruby-1.9d/ruby/ruby.h
+include/ruby-1.9d/ruby/st.h
+include/ruby-1.9d/ruby/subst.h
+include/ruby-1.9d/ruby/util.h
+include/ruby-1.9d/ruby/version.h
+include/ruby-1.9d/ruby/vm.h
+include/ruby-1.9d/ruby.h
+@dirrm include/ruby-1.9d/%%RUBY_ARCH%%/ruby
+@dirrm include/ruby-1.9d/%%RUBY_ARCH%%
+@dirrm include/ruby-1.9d/ruby/backward
+@dirrm include/ruby-1.9d/ruby
+@dirrm include/ruby-1.9d
 %%RUBY_DOCDIR%%/.keep_me
 %%RUBY_EXAMPLESDIR%%/.keep_me
 @dirrmtry %%RUBY_EXAMPLESDIR%%
@@ -510,9 +310,8 @@ include/ruby-1.9/ruby.h
 %%RUBY_LIBDIR%%/psych/coder.rb
 %%RUBY_LIBDIR%%/psych/core_ext.rb
 %%RUBY_LIBDIR%%/psych/deprecated.rb
-%%RUBY_LIBDIR%%/psych/handlers/document_stream.rb
 %%RUBY_LIBDIR%%/psych/handler.rb
-%%RUBY_LIBDIR%%/psych/json.rb
+%%RUBY_LIBDIR%%/psych/handlers/document_stream.rb
 %%RUBY_LIBDIR%%/psych/json/ruby_events.rb
 %%RUBY_LIBDIR%%/psych/json/stream.rb
 %%RUBY_LIBDIR%%/psych/json/tree_builder.rb
@@ -542,6 +341,54 @@ include/ruby-1.9/ruby.h
 %%RUBY_LIBDIR%%/psych/visitors.rb
 %%RUBY_LIBDIR%%/psych.rb
 %%RUBY_LIBDIR%%/racc/parser.rb
+%%RUBY_LIBDIR%%/rake/alt_system.rb
+%%RUBY_LIBDIR%%/rake/application.rb
+%%RUBY_LIBDIR%%/rake/classic_namespace.rb
+%%RUBY_LIBDIR%%/rake/clean.rb
+%%RUBY_LIBDIR%%/rake/cloneable.rb
+%%RUBY_LIBDIR%%/rake/contrib/compositepublisher.rb
+%%RUBY_LIBDIR%%/rake/contrib/ftptools.rb
+%%RUBY_LIBDIR%%/rake/contrib/publisher.rb
+%%RUBY_LIBDIR%%/rake/contrib/rubyforgepublisher.rb
+%%RUBY_LIBDIR%%/rake/contrib/sshpublisher.rb
+%%RUBY_LIBDIR%%/rake/contrib/sys.rb
+%%RUBY_LIBDIR%%/rake/default_loader.rb
+%%RUBY_LIBDIR%%/rake/dsl_definition.rb
+%%RUBY_LIBDIR%%/rake/early_time.rb
+%%RUBY_LIBDIR%%/rake/ext/core.rb
+%%RUBY_LIBDIR%%/rake/ext/module.rb
+%%RUBY_LIBDIR%%/rake/ext/string.rb
+%%RUBY_LIBDIR%%/rake/ext/time.rb
+%%RUBY_LIBDIR%%/rake/file_creation_task.rb
+%%RUBY_LIBDIR%%/rake/file_list.rb
+%%RUBY_LIBDIR%%/rake/file_task.rb
+%%RUBY_LIBDIR%%/rake/file_utils.rb
+%%RUBY_LIBDIR%%/rake/file_utils_ext.rb
+%%RUBY_LIBDIR%%/rake/gempackagetask.rb
+%%RUBY_LIBDIR%%/rake/invocation_chain.rb
+%%RUBY_LIBDIR%%/rake/invocation_exception_mixin.rb
+%%RUBY_LIBDIR%%/rake/lib/project.rake
+%%RUBY_LIBDIR%%/rake/loaders/makefile.rb
+%%RUBY_LIBDIR%%/rake/multi_task.rb
+%%RUBY_LIBDIR%%/rake/name_space.rb
+%%RUBY_LIBDIR%%/rake/packagetask.rb
+%%RUBY_LIBDIR%%/rake/pathmap.rb
+%%RUBY_LIBDIR%%/rake/pseudo_status.rb
+%%RUBY_LIBDIR%%/rake/rake_module.rb
+%%RUBY_LIBDIR%%/rake/rake_test_loader.rb
+%%RUBY_LIBDIR%%/rake/rdoctask.rb
+%%RUBY_LIBDIR%%/rake/ruby182_test_unit_fix.rb
+%%RUBY_LIBDIR%%/rake/rule_recursion_overflow_error.rb
+%%RUBY_LIBDIR%%/rake/runtest.rb
+%%RUBY_LIBDIR%%/rake/task.rb
+%%RUBY_LIBDIR%%/rake/task_argument_error.rb
+%%RUBY_LIBDIR%%/rake/task_arguments.rb
+%%RUBY_LIBDIR%%/rake/task_manager.rb
+%%RUBY_LIBDIR%%/rake/tasklib.rb
+%%RUBY_LIBDIR%%/rake/testtask.rb
+%%RUBY_LIBDIR%%/rake/version.rb
+%%RUBY_LIBDIR%%/rake/win32.rb
+%%RUBY_LIBDIR%%/rake.rb
 %%RUBY_LIBDIR%%/rational.rb
 %%RUBY_LIBDIR%%/rbconfig/datadir.rb
 %%RUBY_LIBDIR%%/rbconfig/obsolete.rb
@@ -983,6 +830,11 @@ include/ruby-1.9/ruby.h
 @dirrm %%RUBY_LIBDIR%%/rdoc/generator
 @dirrm %%RUBY_LIBDIR%%/rdoc
 @dirrm %%RUBY_LIBDIR%%/rbconfig
+@dirrm %%RUBY_LIBDIR%%/rake/loaders
+@dirrm %%RUBY_LIBDIR%%/rake/lib
+@dirrm %%RUBY_LIBDIR%%/rake/ext
+@dirrm %%RUBY_LIBDIR%%/rake/contrib
+@dirrm %%RUBY_LIBDIR%%/rake
 @dirrm %%RUBY_LIBDIR%%/racc
 @dirrm %%RUBY_LIBDIR%%/psych/visitors
 @dirrm %%RUBY_LIBDIR%%/psych/nodes
@@ -1003,14 +855,6 @@ include/ruby-1.9/ruby.h
 @dirrm %%RUBY_LIBDIR%%/irb
 @dirrm %%RUBY_LIBDIR%%/io/console
 @dirrm %%RUBY_LIBDIR%%/io
-@dirrm %%RUBY_LIBDIR%%/fiddle
-@dirrm %%RUBY_LIBDIR%%/drb
-@dirrm %%RUBY_LIBDIR%%/dl
-@dirrm %%RUBY_LIBDIR%%/digest
-@dirrm %%RUBY_LIBDIR%%/date
-@dirrm %%RUBY_LIBDIR%%/cgi/session
-@dirrm %%RUBY_LIBDIR%%/cgi
-@dirrm %%RUBY_LIBDIR%%/bigdecimal
 @dirrm %%RUBY_LIBDIR%%/%%RUBY_ARCH%%/racc
 @dirrm %%RUBY_LIBDIR%%/%%RUBY_ARCH%%/mathn
 @dirrm %%RUBY_LIBDIR%%/%%RUBY_ARCH%%/json/ext
@@ -1021,6 +865,14 @@ include/ruby-1.9/ruby.h
 @dirrm %%RUBY_LIBDIR%%/%%RUBY_ARCH%%/dl
 @dirrm %%RUBY_LIBDIR%%/%%RUBY_ARCH%%/digest
 @dirrm %%RUBY_LIBDIR%%/%%RUBY_ARCH%%
+@dirrm %%RUBY_LIBDIR%%/fiddle
+@dirrm %%RUBY_LIBDIR%%/drb
+@dirrm %%RUBY_LIBDIR%%/dl
+@dirrm %%RUBY_LIBDIR%%/digest
+@dirrm %%RUBY_LIBDIR%%/date
+@dirrm %%RUBY_LIBDIR%%/cgi/session
+@dirrm %%RUBY_LIBDIR%%/cgi
+@dirrm %%RUBY_LIBDIR%%/bigdecimal
 @dirrm %%RUBY_LIBDIR%%/
 %%RUBY_SITEARCHLIBDIR%%/.keep_me
 @dirrmtry %%RUBY_SITEARCHLIBDIR%%

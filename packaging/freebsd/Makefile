@@ -23,7 +23,11 @@ LIB_DEPENDS=	ffi.5:${PORTSDIR}/devel/libffi \
 GNU_CONFIGURE=	yes
 #WRKSRC=		${RUBY_WRKSRC}
 WRKSRC=		work/ruby-1.9.3-p374
-CONFIGURE_ARGS=	${RUBY_CONFIGURE_ARGS} \
+CONFIGURE_ARGS=	\
+	        --with-rubyhdrdir="${PREFIX}/include/ruby-1.9d" \
+	        --with-rubylibprefix="${PREFIX}/lib/rubyd" \
+	        --docdir="${PREFIX}/share/doc/ruby19d" \
+	        --with-soname=ruby19d \
 		--enable-shared \
 		--enable-pthread \
 		--with-ruby-version=minor \
@@ -77,6 +81,7 @@ CONFIGURE_ENV=	CFLAGS="-I${LOCALBASE}/include ${CFLAGS}" \
 		LIBS="-L${LOCALBASE}/lib ${LDFLAGS}" \
 		debugflags=
 
+RUBY_NAME=ruby-1.9d
 .if ${RUBY_VER} == ${RUBY_DEFAULT_VER}
 MLINKS=		${RUBY_NAME}.1 ruby.1
 PLIST_SUB+=	IF_DEFAULT=""
@@ -84,7 +89,7 @@ PLIST_SUB+=	IF_DEFAULT=""
 PLIST_SUB+=	IF_DEFAULT="@comment "
 .endif
 
-INSTALLED_SCRIPTS=	irb erb rdoc ri ruby testrb
+INSTALLED_SCRIPTS=	irb erb gem rdoc ri ruby testrb
 
 EXTSAMPLES=	bigdecimal/sample/*.rb	\
 		curses/hello.rb		\
@@ -98,8 +103,10 @@ EXTDOCS=	bigdecimal/bigdecimal_*.html	\
 		stringio/README			\
 		syslog/syslog.txt
 
-MAN1=		${RUBY_NAME}.1 erb${RUBY_SUFFIX}.1  irb${RUBY_SUFFIX}.1 \
-		ri${RUBY_SUFFIX}.1
+RUBY_SUFFIX=    19d
+RUBY_LIBDIR=    ${PREFIX}/lib/rubyd/1.9
+#MAN1=		${RUBY_NAME}.1 erb${RUBY_SUFFIX}.1  irb${RUBY_SUFFIX}.1 \
+#		ri${RUBY_SUFFIX}.1
 
 # Macros to change variables in rbconfig.rb
 RB_SET_CONF_VAR=${SH} -c '${REINPLACE_CMD} -E -e "s,(CONFIG\[\"$$0\"\][[:space:]]*=[[:space:]]*)(\(?)(.*)(\)?),\1\2$$1\4," ${WRKSRC}/rbconfig.rb' --
@@ -155,43 +162,35 @@ pre-su-install:
 	${TOUCH} ${RUBY_SITEARCHLIBDIR}/.keep_me
 	${TOUCH} ${RUBY_VENDORARCHLIBDIR}/.keep_me
 
-post-install:
-#
-# XXX: hack to strip ruby binary. Ruby uses its own install script that seems
-# bogus to hack.
-#
-.if defined(STRIP) && ${STRIP} == -s
-	${STRIP_CMD} ${PREFIX}/bin/${RUBY_NAME}
-.endif
+# post-install:
+# #
+# # Link just installed "ruby" to "ruby19d", etc.
+# #
+# .if ${RUBY_VER} == ${RUBY_DEFAULT_VER}
+# . for FILE in ${INSTALLED_SCRIPTS}
+# 	${LN} -f ${PREFIX}/bin/${FILE}${RUBY_SUFFIX} ${PREFIX}/bin/${FILE}
+# . endfor
+# .endif
 
-#
-# Link just installed "ruby" to "ruby19d", etc.
-#
-.if ${RUBY_VER} == ${RUBY_DEFAULT_VER}
-. for FILE in ${INSTALLED_SCRIPTS}
-	${LN} -f ${PREFIX}/bin/${FILE}${RUBY_SUFFIX} ${PREFIX}/bin/${FILE}
-. endfor
-.endif
-
-#
-# Add generated RI files to pkg-plist
-#
-	@${FIND} -ds ${RUBY_RIDIR}/ ! -type d ! -name created.rid | \
-		${SED} 's,^${PREFIX}/,,' >> ${TMPPLIST}
-	@${FIND} -ds ${RUBY_RIDIR}/ -type d -mindepth 1 | \
-		${SED} -E -e 's,^${PREFIX}/,@dirrm ,' >> ${TMPPLIST}
+# #
+# # Add generated RI files to pkg-plist
+# #
+# 	@${FIND} -ds ${RUBY_RIDIR}/ ! -type d ! -name created.rid | \
+# 		${SED} 's,^${PREFIX}/,,' >> ${TMPPLIST}
+# 	@${FIND} -ds ${RUBY_RIDIR}/ -type d -mindepth 1 | \
+# 		${SED} -E -e 's,^${PREFIX}/,@dirrm ,' >> ${TMPPLIST}
 
 
-#
-# Add generated doxygen files to pkg-plist
-#
-	@${ECHO_CMD} "@unexec rmdir %D/${RUBY_SITERIDIR:S,^${PREFIX}/,,} 2>/dev/null || true" >> ${TMPPLIST}
-	@${ECHO_CMD} "@unexec rmdir %D/${RUBY_RIDIR:S,^${PREFIX}/,,} 2>/dev/null || true" >> ${TMPPLIST}
-	@${ECHO_CMD} "@unexec rmdir %D/share/ri/${RUBY_VER} 2>/dev/null || true" >> ${TMPPLIST}
-	@${ECHO_CMD} "@unexec rmdir %D/share/ri 2>/dev/null || true" >> ${TMPPLIST}
-	@${ECHO_CMD} "@unexec rmdir %D/${RUBY_DOCDIR:S,^${PREFIX}/,,} 2>/dev/null || true" >> ${TMPPLIST}
+# #
+# # Add generated doxygen files to pkg-plist
+# #
+# 	@${ECHO_CMD} "@unexec rmdir %D/${RUBY_SITERIDIR:S,^${PREFIX}/,,} 2>/dev/null || true" >> ${TMPPLIST}
+# 	@${ECHO_CMD} "@unexec rmdir %D/${RUBY_RIDIR:S,^${PREFIX}/,,} 2>/dev/null || true" >> ${TMPPLIST}
+# 	@${ECHO_CMD} "@unexec rmdir %D/share/ri/${RUBY_VER} 2>/dev/null || true" >> ${TMPPLIST}
+# 	@${ECHO_CMD} "@unexec rmdir %D/share/ri 2>/dev/null || true" >> ${TMPPLIST}
+# 	@${ECHO_CMD} "@unexec rmdir %D/${RUBY_DOCDIR:S,^${PREFIX}/,,} 2>/dev/null || true" >> ${TMPPLIST}
 
-	@${CAT} ${PKGMESSAGE}
+# 	@${CAT} ${PKGMESSAGE}
 
 plist::
 	truncate -s0 pkg-plist
@@ -199,17 +198,17 @@ plist::
 	@${ECHO_CMD} "bin/${FILE}%%RUBY_SUFFIX%%" >> pkg-plist
 	@${ECHO_CMD} "%%IF_DEFAULT%%bin/${FILE}" >> pkg-plist
 .endfor
-	@${ECHO_CMD} "lib/lib%%RUBY_NAME%%-static.a" >> pkg-plist
-	@${ECHO_CMD} "lib/lib%%RUBY_NAME%%.so" >> pkg-plist
-	@${ECHO_CMD} "lib/lib%%RUBY_NAME%%.so.%%RUBY_SHLIBVER%%" >> pkg-plist
-	@${ECHO_CMD} "libdata/pkgconfig/ruby-1.9.pc" >> pkg-plist
+	@${ECHO_CMD} "lib/libruby19d-static.a" >> pkg-plist
+	@${ECHO_CMD} "lib/libruby19d.so" >> pkg-plist
+	@${ECHO_CMD} "lib/libruby19d.so.%%RUBY_SHLIBVER%%" >> pkg-plist
+	@${ECHO_CMD} "libdata/pkgconfig/ruby-1.9d.pc" >> pkg-plist
 
 #
 # Includes
 #
-	@${FIND} -ds ${PREFIX}/include/ruby-${RUBY_VER} ! -type d | \
+	@${FIND} -ds ${PREFIX}/include/${RUBY_NAME} ! -type d | \
 		${SED} 's,^${PREFIX}/*,,' >> pkg-plist
-	@${FIND} -ds ${PREFIX}/include/ruby-${RUBY_VER} -type d | \
+	@${FIND} -ds ${PREFIX}/include/${RUBY_NAME} -type d | \
 		${SED} 's,^${PREFIX}/*,@dirrm ,' >> pkg-plist
 
 #
@@ -221,14 +220,6 @@ plist::
 	@${FIND} -Eds ${RUBY_DOCDIR}/ -type d -mindepth 1 | ${SORT} -r | \
 		${SED} -E -e \
 		's,^${RUBY_DOCDIR}(.*),%%PORTDOCS%%@dirrm %%RUBY_DOCDIR%%\1,' \
-		>> pkg-plist
-
-	@${FIND} -ds ${RUBY_EXAMPLESDIR}/ ! -type d ! -name .keep_me | \
-		${SED} 's,^${RUBY_EXAMPLESDIR},%%PORTDOCS%%%%RUBY_EXAMPLESDIR%%,' \
-		 >> pkg-plist
-	@${FIND} -ds ${RUBY_EXAMPLESDIR}/ -type d -mindepth 1 | ${SORT} -r | \
-		${SED} -E -e \
-		's,^${RUBY_EXAMPLESDIR}(.*),%%PORTDOCS%%@dirrm %%RUBY_EXAMPLESDIR%%\1,' \
 		>> pkg-plist
 
 	@${ECHO_CMD} "%%RUBY_DOCDIR%%/.keep_me" >> pkg-plist
@@ -264,7 +255,6 @@ plist::
 	@${ECHO_CMD} "@dirrmtry %%RUBY_VENDORARCHLIBDIR%%" >> pkg-plist
 	@${ECHO_CMD} "@dirrmtry %%RUBY_VENDORLIBDIR%%" >> pkg-plist
 	@${ECHO_CMD} "@dirrmtry lib/ruby/vendor_ruby" >> pkg-plist
-	@${ECHO_CMD} "@dirrmtry lib/ruby/gems" >> pkg-plist
 
 	@${ECHO_CMD} "@dirrmtry lib/ruby" >> pkg-plist
 
