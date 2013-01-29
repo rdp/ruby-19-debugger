@@ -1,3 +1,9 @@
+ruby19d (374-2) UNRELEASED; urgency=low
+
+  * More aggressive about keeping separate from ruby19
+
+ -- rocky <rockyb@rubyforge.org>  Mon, 28 Jan 2013 05:38:05 -0500
+
 ruby19d (374-1) UNRELEASED; urgency=low
 
   * Initial release.

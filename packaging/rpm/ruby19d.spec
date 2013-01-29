@@ -30,10 +30,16 @@ See http://github.com/rocky/trepanning.
 CFLAGS="$RPM_OPT_FLAGS -Wall -fno-strict-aliasing"
 export CFLAGS
 %configure \
+  --with-rubyhdrdir="${PREFIX}/include/ruby-1.9d" \
+  --with-rubylibprefix="${PREFIX}/lib/rubyd" \
+  --docdir="${PREFIX}/share/doc/ruby19d" \
+  --with-soname=ruby19d \
   --enable-shared \
+  --with-ruby-version=minor \
   --disable-rpath \
   --without-X11 \
   --without-tk \
+  --with-ruby_pc=ruby-1.9d.pc \
   --program-suffix=19d
 
 make %{?_smp_mflags}
@@ -63,6 +69,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_prefix}/share/
 
 %changelog
+* Mon Jan 28 2013 Rocky Bernstein <rockyb@rubyforge.org> 1.9.3-p374-debugger-3
+- More aggressive with separating from ruby19.
+
 * Tue Jan 20 2013 Rocky Bernstein <rockyb@rubyforge.org> 1.9.3-p374-debugger-2
 - Remove "alternatives" code. For now it is a separate program.
 

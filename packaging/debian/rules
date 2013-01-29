@@ -9,5 +9,9 @@
 
 override_dh_auto_configure:
 	dh_auto_configure $@ -- \
+	--with-rubyhdrdir="${PREFIX}/include/ruby-1.9d" \
+	--with-rubylibprefix="${PREFIX}/lib/rubyd" \
+	--with-soname=ruby19d \
+        --docdir="${PREFIX}/share/doc/ruby19d" \
 	--enable-shared --disable-rpath --without-X11 --without-tk \
 	--program-suffix=19d

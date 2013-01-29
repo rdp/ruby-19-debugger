@@ -1,0 +1,43 @@
+Here is how to build the RPM from stratch.
+
+0. Make sure you can run rpmbuild. This is in the rpmbuild package.
+   yum install rpm-build
+
+1. Get dependent libraries. Again with possibly yum: 
+   bison 
+   gcc 
+   gdbm 
+   gdbm-devel 
+   glibc-devel 
+   libffi-devel
+   libyaml-devel
+   make 
+   ncurses 
+   ncurses-devel 
+   openssl-devel 
+   readline 
+   readline-devel 
+   ruby
+   unzip 
+
+2. Get the debugger source: 
+
+    wget http://ruby-19-debugger.googlecode.com/files/ruby-1.9.3-p374-debugger.tar.gz
+
+3. Copy it to where rpmbuild wants it. 
+   The simplest way I've found to figure that out is to run :
+
+   rpmbuild -ba ruby19d.spec
+
+4. Run the rpmbuild
+
+   rpmbuild -ba ruby19d.spec
+
+   At the end the you'll be told where the RPMs are located. 
+
+5. Install that rpm build in 4.
+
+   rpm -ivh <rpm-file-built-in-step-4>
+
+
+

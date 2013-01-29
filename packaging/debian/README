@@ -1,0 +1,39 @@
+Until I can better figure out how to organize things, this directory
+is not usable as is for building a deb. 
+
+So here is what you gotta do.
+
+0. Create a directory called ruby19d
+
+1. cd ruby19d
+
+2. Download the source:
+   wget http://ruby-19-debugger.googlecode.com/files/ruby-1.9.3-p374-debugger.tar.gz
+
+3. Rename it:
+   mv ruby-1.9.3-p374-debugger.tar.gz ruby19d_374.orig.tar.gz
+
+4. Unpack it:
+   tar -xf ruby19d_374.orig.tar.gz
+
+5. cd ruby-1.9.3-p374
+
+6. copy the contents of this directory into ruby-1.9.3-p374
+   cp -r ???/ruby-19-debugger/packaging/debian  .
+
+7. Make whatever changes you want to the packaging here.
+  
+....
+
+n-2. Oh yeah -- build the Debian package: 
+
+   debuild -us -uc
+
+n-1. Install that package:
+   sudo dpkg -i <ruby19.deb>
+
+n. Add the trepanning debugger with optional code for colorization
+
+   sudo gem install trepanning coderay term-ansicolor
+
+
