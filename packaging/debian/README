@@ -25,15 +25,20 @@ So here is what you gotta do.
   
 ....
 
-n-2. Oh yeah -- build the Debian package: 
+n-3. Oh yeah -- build the Debian package: 
 
    debuild -us -uc
 
-n-1. Install that package:
+n-2. Install that package:
    sudo dpkg -i <ruby19.deb>
 
-n. Add the trepanning debugger with optional code for colorization
+n-1. Add the trepanning debugger with optional code for colorization
 
    sudo gem install trepanning coderay term-ansicolor
+
+n. Try out debugger:
+   trepan trepan
+   quit
+
 
 

@@ -37,15 +37,15 @@ Here is how to build the RPM from stratch.
 
 5. Install that rpm build in 4.
 
-   rpm -ivh <rpm-file-built-in-step-4>
+   rpm -ivh <path>/ruby19-1.9.3p374-....rpm
 
-6. Install that package:
-   rpm -ivh <ruby19.deb>
-
-7. Add the trepanning debugger with optional code for colorization:
+6. Add the trepanning debugger with optional code for colorization:
 
    sudo gem install trepanning coderay term-ansicolor
 
+7. Try out debugger:
+   trepan trepan
+   quit
 
 
 

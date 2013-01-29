@@ -30,9 +30,9 @@ See http://github.com/rocky/trepanning.
 CFLAGS="$RPM_OPT_FLAGS -Wall -fno-strict-aliasing"
 export CFLAGS
 %configure \
-  --with-rubyhdrdir="${PREFIX}/include/ruby-1.9d" \
-  --with-rubylibprefix="${PREFIX}/lib/rubyd" \
-  --docdir="${PREFIX}/share/doc/ruby19d" \
+  --with-rubyhdrdir=/usr/include/ruby-1.9d \
+  --with-rubylibprefix=/usr/lib/rubyd \
+  --docdir=/usr/share/doc/ruby19d \
   --with-soname=ruby19d \
   --enable-shared \
   --with-ruby-version=minor \
