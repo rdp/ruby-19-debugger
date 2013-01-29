@@ -27,17 +27,25 @@ Here is how to build the RPM from stratch.
 3. Copy it to where rpmbuild wants it. 
    The simplest way I've found to figure that out is to run :
 
-   rpmbuild -ba ruby19d.spec
+   sudo rpmbuild -ba ruby19d.spec
 
 4. Run the rpmbuild
 
-   rpmbuild -ba ruby19d.spec
+   sudo rpmbuild -ba ruby19d.spec
 
    At the end the you'll be told where the RPMs are located. 
 
 5. Install that rpm build in 4.
 
    rpm -ivh <rpm-file-built-in-step-4>
+
+6. Install that package:
+   rpm -ivh <ruby19.deb>
+
+7. Add the trepanning debugger with optional code for colorization:
+
+   sudo gem install trepanning coderay term-ansicolor
+
 
 
 
