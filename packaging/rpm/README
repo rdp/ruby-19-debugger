@@ -46,6 +46,3 @@ Here is how to build the RPM from stratch.
 7. Try out debugger:
    trepan trepan
    quit
-
-
-
