@@ -1,22 +1,23 @@
 %define rubyver      1.9.3
-%define rubyminorver p374
+%define rubyminorver p484
 
-Name:ruby19d
-Version:%{rubyver}%{rubyminorver}
-Release:2%{?dist}
-License:Ruby License/GPL - see COPYING
-URL:http://www.ruby-lang.org/
+Name:		ruby19d
+Version:	%{rubyver}%{rubyminorver}
+Release:	2%{?dist}
+License:	Ruby License/GPL - see COPYING
+URL:		http://www.ruby-lang.org/
 Provides:       ruby(abi) = 1.9
 BuildRoot:%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires:readline readline-devel ncurses ncurses-devel gdbm gdbm-devel glibc-devel gcc unzip openssl-devel bison make ruby
-Source0:https://ruby-19-debugger.googlecode.com/files/ruby-%{rubyver}-%{rubyminorver}-debugger.tar.gz
-Summary:Ruby Programming Language with additional support for debuggers
-Group:Development/Languages
-Requires(preun): %{_sbindir}/alternatives, /sbin/install-info, dev
+BuildRequires:	readline readline-devel ncurses ncurses-devel gdbm gdbm-devel glibc-devel gcc unzip openssl-devel bison make ruby
+Requires:	libyaml
+Source0:	https://ruby-19-debugger.googlecode.com/files/ruby-%{rubyver}-%{rubyminorver}-debugger.tar.gz
+Summary:	Ruby Programming Language with additional support for debuggers
+Group:		Development/Languages
+Requires(preun): %{_sbindir}/alternatives, /sbin/install-info
 Requires(posttrans): %{_sbindir}/alternatives
-Requires(post): /sbin/install-info, dev
+Requires(post): /sbin/install-info
 
-%description 
+%description
 Ruby is the interpreted scripting language for quick and
 easy object-oriented programming.  This package adds to this run-time
 introspection of the call stack and inspection and stepping through
@@ -24,11 +25,14 @@ instruction sequences which make it possible to write powerful
 debuggers such as trepanning.
 
 See http://github.com/rocky/trepanning.
+
 %prep
 %setup -n ruby-%{rubyver}-%{rubyminorver}
+
 %build
 CFLAGS="$RPM_OPT_FLAGS -Wall -fno-strict-aliasing"
 export CFLAGS
+
 %configure \
   --with-rubyhdrdir=/usr/include/ruby-1.9d \
   --with-rubylibprefix=/usr/lib/rubyd \
@@ -45,12 +49,15 @@ export CFLAGS
 make %{?_smp_mflags}
 
 %install
-rm -rf $RPM_BUILD_ROOT
 
 # installing binaries ...
 make install DESTDIR=$RPM_BUILD_ROOT
+
 rm -f $RPM_BUILD_ROOT%{_libdir}/libruby-static.a
 rm -f $RPM_BUILD_ROOT%{_libdir}/libruby.so
+
+#we don't want to keep the src directory
+rm -rf $RPM_BUILD_ROOT/usr/src
 
 %preun
 for prog in erb gem irb rake rdoc ri ruby testrb; do
@@ -60,15 +67,18 @@ done
 %clean
 rm -rf $RPM_BUILD_ROOT
 
-%files 
+%files
 %defattr(-, root, root)
-%doc README COPYING ChangeLog LEGAL ToDo 
+%doc README COPYING ChangeLog LEGAL ToDo
 %{_bindir}
+%{_datadir}
 %{_includedir}
 %{_libdir}
-%{_prefix}/share/
 
 %changelog
+* Thu Jun 19 2014 Rocky Bernstein <rockyb@rubyforge.org> 1.9.3-p484-debugger-2
+- Revise for p484 to make work on RHEL 7
+
 * Mon Jan 28 2013 Rocky Bernstein <rockyb@rubyforge.org> 1.9.3-p374-debugger-3
 - More aggressive with separating from ruby19.
 

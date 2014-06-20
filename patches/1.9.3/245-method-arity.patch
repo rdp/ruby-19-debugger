@@ -1,4 +1,4 @@
-Adds Method#arity. 
+Adds Method#arity.
 
 The unit test added here uses ISEQS__ from
 240-iseq-SCRIPT_ISEQS__.patch and adds code to that the unit
@@ -11,8 +11,8 @@ index f36bae1..570d825 100644
 @@ -597,6 +597,22 @@ iseq_load(VALUE self, VALUE data, VALUE parent, VALUE opt)
      return iseqval;
  }
- 
-+/* 
+
++/*
 + *  call-seq:
 + *  RubyVM::InstructionSequence#arity -> Fixnum
 + *
@@ -49,7 +49,7 @@ index 8df190e..a7f2621 100644
  rb_iseq_t *rb_proc_get_iseq(VALUE proc, int *is_proc);
 +int method_arity(VALUE);
 +int get_iseq_arity(rb_iseq_t *iseq);
- 
+
  struct rb_compile_option_struct {
      int inline_const_cache;
 diff --git a/proc.c b/proc.c
@@ -58,19 +58,19 @@ index 11a2d3e..45998dd 100644
 +++ b/proc.c
 @@ -28,7 +28,6 @@ VALUE rb_cBinding;
  VALUE rb_cProc;
- 
- static VALUE bmcall(VALUE, VALUE);
+
+ static VALUE bmcall(VALUE, VALUE, int, VALUE *, VALUE);
 -static int method_arity(VALUE);
- 
+
  /* Proc */
- 
+
 @@ -326,6 +325,28 @@ rb_binding_new(void)
      return bindval;
  }
- 
+
 +/*  Like rb_binding_new(), but we allow you to pass your own thread and
 + *  cfp rather than assume the current thread and current frame
-+ *  pointer. 
++ *  pointer.
 +*/
 +VALUE
 +rb_binding_frame_new(void *vth, void *vcfp)
@@ -79,9 +79,9 @@ index 11a2d3e..45998dd 100644
 +    rb_control_frame_t * cfp  = (rb_control_frame_t *) vcfp;
 +    VALUE bindval = binding_alloc(rb_cBinding);
 +    rb_binding_t *bind;
-+    
++
 +    if (cfp == 0) {
-+        rb_raise(rb_eRuntimeError, 
++        rb_raise(rb_eRuntimeError,
 +		 "Can't create Binding Object on top of Fiber.");
 +    }
 +
@@ -96,9 +96,9 @@ index 11a2d3e..45998dd 100644
 @@ -630,6 +651,29 @@ proc_arity(VALUE self)
      return INT2FIX(arity);
  }
- 
-+int 
-+get_iseq_arity(rb_iseq_t *iseq) 
+
++int
++get_iseq_arity(rb_iseq_t *iseq)
 +{
 +    if (iseq) {
 +	if (BUILTIN_TYPE(iseq) != T_NODE) {
@@ -126,7 +126,7 @@ index 11a2d3e..45998dd 100644
 @@ -1648,7 +1692,7 @@ method_arity_m(VALUE method)
      return INT2FIX(n);
  }
- 
+
 -static int
 +int
  method_arity(VALUE method)
