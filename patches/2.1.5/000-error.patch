@@ -1,3 +1,5 @@
+Change who should get bug reports. We don't want Ruby folks to be bothered with our mistakes.
+
 diff --git a/rocky/test-000-config.rb b/rocky/test-000-config.rb
 old mode 100644
 new mode 100755
