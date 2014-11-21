@@ -1,0 +1,48 @@
+Show that this is a pached ruby with threadframe and debugger support
+
+
+diff --git a/rocky/test-000-config.rb b/rocky/test-000-config.rb
+new file mode 100644
+index 0000000..d6b13d7
+--- /dev/null
++++ b/rocky/test-000-config.rb
+@@ -0,0 +1,14 @@
++#!/usr/bin/env ruby
++require 'test/unit'
++
++class TestAppUtil < Test::Unit::TestCase
++  def test_basic
++      output = `../ruby --version`
++      assert_match(/with debugger support/, output,
++                   'Banner to reflect debugger support')
++      cmd=%q(../miniruby -e 'load "../rbconfig.rb"; include RbConfig; puts CONFIG["rb-threadframe"]')
++      output = `#{cmd}`
++      puts cmd
++      assert_equal('0.3', output.chomp)
++  end
++end
+diff --git a/tool/mkconfig.rb b/tool/mkconfig.rb
+index 07076d4..c8e965c 100755
+--- a/tool/mkconfig.rb
++++ b/tool/mkconfig.rb
+@@ -177,6 +177,7 @@ ARCH
+ print "  universal = #{universal}\n" if universal
+ print "  CONFIG = {}\n"
+ print "  CONFIG[\"DESTDIR\"] = DESTDIR\n"
++print "  CONFIG[\"rb-threadframe\"] = \"0.3\"\n"
+
+ versions = {}
+ IO.foreach(File.join(srcdir, "version.h")) do |l|
+diff --git a/version.h b/version.h
+index fbb3fa9..ba5a11a 100644
+--- a/version.h
++++ b/version.h
+@@ -42,7 +42,7 @@
+ # define RUBY_DESCRIPTION	    \
+     "ruby "RUBY_VERSION		    \
+     RUBY_PATCHLEVEL_STR		    \
+-    " ("RUBY_RELEASE_DATE	    \
++    " with debugger support ("RUBY_RELEASE_DATE	    \
+     RUBY_REVISION_STR") "	    \
+     "["RUBY_PLATFORM"]"
+ # define RUBY_COPYRIGHT		    \
