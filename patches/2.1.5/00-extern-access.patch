@@ -1,0 +1,70 @@
+vm_core.h: move fixed-length fields to front and fields that
+           vary toward the end. Not strictly necessary but makes it possible
+           for extensions to get at these fields and make debugging these structures easier
+
+Necessity: not important. Might be skipped.
+
+diff --git a/vm_core.h b/vm_core.h
+index 21c9aae..e594569 100644
+--- a/vm_core.h
++++ b/vm_core.h
+@@ -538,6 +538,19 @@ typedef struct rb_thread_struct {
+
+     int waiting_fd;
+
++    /* tracer */
++    rb_hook_list_t event_hooks;
++    struct rb_trace_arg_struct *trace_arg; /* trace information */
++    rb_event_flag_t event_flags;
++    int tracing;  /* 0 if not tracing. If less than 0, skip that many
++		     C call/return pairs */
++
++    int exec_event_tracing;  /* 0 if not in rb_threadptr_evec_event_hooks. */
++
++    /* misc */
++    int method_missing_reason;
++    int abort_on_exception;
++
+     /* for rb_iterate */
+     const rb_block_t *passed_block;
+
+@@ -563,6 +576,14 @@ typedef struct rb_thread_struct {
+     int to_kill;
+     int priority;
+
++    /* statistics data for profiler */
++    VALUE stat_insn_usage;
++
++    /* fiber */
++    VALUE fiber;
++    VALUE root_fiber;
++    rb_jmpbuf_t root_jmpbuf;
++
+     native_thread_data_t native_thread_data;
+     void *blocking_region_buffer;
+
+@@ -630,24 +651,9 @@ typedef struct rb_thread_struct {
+     } machine;
+     int mark_stack_len;
+
+-    /* statistics data for profiler */
+-    VALUE stat_insn_usage;
+-
+-    /* tracer */
+-    rb_hook_list_t event_hooks;
+-    struct rb_trace_arg_struct *trace_arg; /* trace information */
+-
+-    /* fiber */
+-    VALUE fiber;
+-    VALUE root_fiber;
+-    rb_jmpbuf_t root_jmpbuf;
+-
+     /* ensure & callcc */
+     rb_ensure_list_t *ensure_list;
+
+-    /* misc */
+-    int method_missing_reason;
+-    int abort_on_exception;
+ #ifdef USE_SIGALTSTACK
+     void *altstack;
+ #endif
