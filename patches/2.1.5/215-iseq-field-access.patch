@@ -1,0 +1,275 @@
+More InstructionSequence methods: compile_options, encoded, equal?
+local_iseq, local_name, parent
+
+Note: compile_options needs a further patch since it is nil'd after compilation by default.
+
+diff --git a/iseq.c b/iseq.c
+index 9365ca9..6487ca2 100644
+--- a/iseq.c
++++ b/iseq.c
+@@ -124,6 +124,23 @@ iseq_mark(void *ptr)
+     RUBY_MARK_LEAVE("iseq");
+ }
+
++/*
++ * This routine is here to allow an external C extension to create a
++ * RubyVM::InstructionSequence object sequence from its own C pointer
++ * of type rb_iseq_t *. For example, the rb-threadframe uses this
++ * routine to implement Method#iseq and Proc#iseq.
++ */
++VALUE
++iseq_alloc_shared(VALUE klass)
++{
++    VALUE volatile obj;
++    rb_iseq_t *iseq;
++
++    obj = Data_Make_Struct(klass, rb_iseq_t, iseq_mark, NULL, iseq);
++    MEMZERO(iseq, rb_iseq_t, 1);
++    return obj;
++}
++
+ static size_t
+ iseq_memsize(const void *ptr)
+ {
+@@ -2308,6 +2325,167 @@ ISEQ_INT_FIELD_METHOD(iseq_size) ;
+ ISEQ_INT_FIELD_METHOD(local_size) ;
+ ISEQ_INT_FIELD_METHOD(local_table_size) ;
+
++#define COMPILE_OPTS_BOOL_SET_HASH(FIELD) \
++    rb_hash_aset(hash_opts, rb_str_new2(#FIELD), \
++		 (compile_opts->FIELD) ? Qtrue : Qfalse)
++
++/*
++ *  Document-method: RubyVM::InstructionSequence::compile_options
++ *
++ *  call-seq:
++ *     RubyVM::InstructionSequence#compile_options -> Hash
++ *
++ *  Returns a hash of the compiler options used to create the specific
++ *  instruction sequence. In contrast to
++ *  InstrcutionSequence.compile_option, this is specific to this
++ *  instruction sequence rather than the current default value.
++ */
++VALUE
++rb_iseq_compile_options(VALUE iseqval)
++{
++    rb_iseq_t *iseq;
++    if (Qnil == iseqval) return Qnil;
++    else {
++	VALUE hash_opts = rb_hash_new();
++	const rb_compile_option_t *compile_opts;
++	GetISeqPtr(iseqval, iseq);
++	if (!iseq->compile_data) return Qnil;
++	compile_opts = iseq->compile_data->option;
++	COMPILE_OPTS_BOOL_SET_HASH(inline_const_cache);
++	COMPILE_OPTS_BOOL_SET_HASH(peephole_optimization);
++	COMPILE_OPTS_BOOL_SET_HASH(tailcall_optimization);
++	COMPILE_OPTS_BOOL_SET_HASH(specialized_instruction);
++	COMPILE_OPTS_BOOL_SET_HASH(operands_unification);
++	COMPILE_OPTS_BOOL_SET_HASH(stack_caching);
++	COMPILE_OPTS_BOOL_SET_HASH(trace_instruction);
++	COMPILE_OPTS_BOOL_SET_HASH(debug_level);
++#ifdef FINISHED
++	COMPILE_OPTS_BOOL_SET_HASH(save_tree_node);
++	COMPILE_OPTS_BOOL_SET_HASH(save_compile_opts);
++#endif
++	return hash_opts;
++    }
++}
++
++/*
++ *  Document-method: RubyVM::InstructionSequence::encoded
++ *
++ *  call-seq:
++ *     RubyVM::InstructionSequence#iseq_encoded -> String
++ *
++ *  Returns a string of the encoded bytes of the instruction
++ *  sequence. Note that this is probably not usable as is, may be useful in
++ *  decoding instructions (using other info) or for getting a sha1
++ *  checksum.
++ */
++VALUE
++rb_iseq_iseq_encoded(VALUE iseqval)
++{
++    rb_iseq_t *iseq;
++    GetISeqPtr(iseqval, iseq);
++    return rb_str_new((char *) iseq->iseq_encoded, iseq->iseq_size);
++}
++
++ /*
++ *  Document-method: RubyVM::InstructionSequence::equal?
++ *
++ *  call-seq:
++ *     RubyVM::InstructionSequence#equal?(iseq2) -> bool
++ *
++ *  Returns true if the instruction sequences are equal.
++ */
++VALUE
++rb_iseq_equal(VALUE iseqval1, VALUE iseqval2)
++{
++    rb_iseq_t *iseq1, *iseq2;
++
++    if (Qnil == iseqval2) return Qfalse;
++    if (!rb_obj_is_kind_of(iseqval2, rb_cISeq)) {
++	rb_raise(rb_eTypeError,
++		 "comparison argument must be an instance of %s or nil (is %s)",
++		 rb_obj_classname(iseqval1), rb_obj_classname(iseqval2));
++    }
++
++    if (iseqval1 == iseqval2) return Qtrue;
++    GetISeqPtr(iseqval1, iseq1);
++    GetISeqPtr(iseqval2, iseq2);
++
++    /* FIXME: the count 40 below  is bogus. I think this should be the fields
++       from "type" to  "mark_ary".
++     */
++    if (0 == memcmp(iseq1, iseq2, 40))
++	return rb_equal(*iseq1->iseq_encoded, *iseq2->iseq_encoded) ?
++	    Qtrue: Qfalse;
++    else
++	return Qfalse;
++}
++
++VALUE
++rb_iseq_parent(VALUE self)
++{
++    rb_iseq_t *piseq;
++    rb_iseq_t *parent_iseq;
++    VALUE parent_iseqval;
++    GetISeqPtr(self, piseq);
++
++    if (!RTEST(piseq->parent_iseq)) return Qnil;
++    parent_iseqval = iseq_alloc_shared(rb_cISeq);
++    GetISeqPtr(parent_iseqval, parent_iseq);
++    memcpy(parent_iseq, piseq->parent_iseq, sizeof(struct rb_iseq_struct));
++    return parent_iseqval;
++}
++
++VALUE
++rb_iseq_local_iseq(VALUE self)
++{
++    rb_iseq_t *piseq;
++    rb_iseq_t *local_iseq;
++    VALUE local_iseqval;
++    GetISeqPtr(self, piseq);
++
++    if (!RTEST(piseq->local_iseq)) return Qnil;
++    local_iseqval = iseq_alloc_shared(rb_cISeq);
++    GetISeqPtr(local_iseqval, local_iseq);
++    memcpy(local_iseq, piseq->local_iseq, sizeof(struct rb_iseq_struct));
++    return local_iseqval;
++}
++
++/*
++ * call-seq:
++ *     RubyVM::InstructionSequence#local_name(i) - String
++ *
++ *  Returns the string name of local variable in i'th position
++ *  of the instruction sequence local table, or nil if i is
++ * out of range.
++ */
++VALUE
++rb_iseq_local_name(VALUE iseqval, VALUE val)
++{
++    rb_iseq_t *iseq;
++    if (FIXNUM_P(val)) {
++      long int i = FIX2INT(val);
++      long int size;
++
++      GetISeqPtr(iseqval, iseq);
++
++      size = iseq->local_table_size;
++
++      if (i < 0) i = size + i;
++
++      if (i >= size)
++	rb_raise(rb_eIndexError,
++		 "local table index %ld should be in the range -%ld .. %ld",
++		 i, size, size-1);
++
++      return rb_str_new2(rb_id2name(iseq->local_table[i]));
++    } else {
++      rb_raise(rb_eTypeError, "type mismatch: %s given, Fixnum expected",
++	       rb_class2name(CLASS_OF(val)));
++    }
++    /* not reached. */
++    return Qnil;
++}
++
+ void
+ Init_ISeq(void)
+ {
+@@ -2362,17 +2540,17 @@ Init_ISeq(void)
+     rb_define_method(rb_cISeq, "arg_post_len",     rb_iseq_arg_post_len, 0) ;
+     rb_define_method(rb_cISeq, "arg_rest",         rb_iseq_arg_rest, 0) ;
+     rb_define_method(rb_cISeq, "arg_simple",       rb_iseq_arg_simple, 0) ;
+-#ifdef FINISHED
+-    rb_define_method(rb_cISeq, "equal?",           iseq_equal, 1) ;
+-    rb_define_method(rb_cISeq, "line_range",       iseq_line_range, 0) ;
+-    rb_define_method(rb_cISeq, "local_iseq",       iseq_local_iseq, 0) ;
+-    rb_define_method(rb_cISeq, "local_name",       iseq_local_name, 1) ;
+-    rb_define_method(rb_cISeq, "parent",           iseq_parent, 0) ;
+-#endif
++    rb_define_method(rb_cISeq, "argc",             rb_iseq_argc, 0) ;
++    rb_define_method(rb_cISeq, "compile_options",  rb_iseq_compile_options, 0) ;
++    rb_define_method(rb_cISeq, "encoded",          rb_iseq_iseq_encoded, 0) ;
++    rb_define_method(rb_cISeq, "equal?",           rb_iseq_equal, 1) ;
+     rb_define_method(rb_cISeq, "iseq_size",        rb_iseq_iseq_size, 0) ;
+     rb_define_method(rb_cISeq, "klass",            rb_iseq_klass, 0) ;
++    rb_define_method(rb_cISeq, "local_iseq",       rb_iseq_local_iseq, 0) ;
++    rb_define_method(rb_cISeq, "local_name",       rb_iseq_local_name, 1) ;
+     rb_define_method(rb_cISeq, "local_size",       rb_iseq_local_size, 0) ;
+     rb_define_method(rb_cISeq, "local_table_size", rb_iseq_local_table_size, 0) ;
++    rb_define_method(rb_cISeq, "parent",           rb_iseq_parent, 0) ;
+     rb_define_method(rb_cISeq, "orig",             rb_iseq_orig, 0) ;
+     rb_define_method(rb_cISeq, "self",             rb_iseq_self, 0) ;
+     rb_define_method(rb_cISeq, "type",             rb_iseq_type, 0) ;
+diff --git a/test/debugger-ext/test-iseq-source.rb b/test/debugger-ext/test-iseq-source.rb
+new file mode 100644
+index 0000000..6ff16ee
+--- /dev/null
++++ b/test/debugger-ext/test-iseq-source.rb
+@@ -0,0 +1,22 @@
++require 'test/unit'
++class TestISeqSource < Test::Unit::TestCase
++  def test_source
++      iseq = RubyVM::InstructionSequence.new("x=1")
++      assert_equal  0, iseq.argc
++      assert_operator 0, :<=, iseq.iseq_size
++      assert iseq.disasm.is_a?(String)
++      assert_equal 'x', iseq.local_name(0), 'getting first local name'
++      assert iseq.encoded
++      assert_equal 1, iseq.eval
++      assert_nil iseq.parent
++      assert iseq.equal?(iseq)
++      iseq2 = RubyVM::InstructionSequence.new("x=1")
++      assert iseq.equal?(iseq2), "equal but different iseq's"
++      iseq3 = RubyVM::InstructionSequence.new("x=3")
++      assert iseq.equal?(iseq3), "different iseq's"
++      # NOTE a later patch save compile options.
++      # at this patch and before alone iseq.compile_options are nil
++      # p iseq.compile_options
++  end
++
++end
+diff --git a/test/debugger-ext/testit.sh b/test/debugger-ext/testit.sh
+index ab610a2..4d1dd76 100755
+--- a/test/debugger-ext/testit.sh
++++ b/test/debugger-ext/testit.sh
+@@ -1,6 +1,6 @@
+ #!/bin/bash
+ if (( $# == 0 )) ; then
+-    args=test_*.rb
++    args=test-*.rb
+ elif [[ $1 == 'shortest' ]] ; then
+     exec $SHELL $0 | grep 'failure'
+ elif [[ $1 == 'short' ]] ; then
+@@ -8,7 +8,7 @@ elif [[ $1 == 'short' ]] ; then
+ else
+     args=$@
+ fi
+-for t in $args ; do
++for t in $args ; do
+     echo "===== $t ====="
+     ../../miniruby -I../../lib -I../.. $t
+     # echo ../../miniruby -I../../lib -I../.. $t

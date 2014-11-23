@@ -10,7 +10,7 @@ index 0000000..ab610a2
 @@ -0,0 +1,16 @@
 +#!/bin/bash
 +if (( $# == 0 )) ; then
-+    args=test_*.rb
++    args=test-*.rb
 +elif [[ $1 == 'shortest' ]] ; then
 +    exec $SHELL $0 | grep 'failure'
 +elif [[ $1 == 'short' ]] ; then

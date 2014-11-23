@@ -128,9 +128,7 @@ index 0000000..8dc083d
 +          assert_equal(expected, iseq.send(method), method)
 +      end
 +
-+      %w(self).each do |arg|
-+          assert iseq.respond_to?(arg)
-+      end
++      assert iseq.self.kind_of?(RubyVM::InstructionSequence)
 +  end
 +end
 +
