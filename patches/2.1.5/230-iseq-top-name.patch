@@ -1,0 +1,75 @@
+Changes the instruction sequence name slightly for the top-most
+instruction-sequence container (ISEQ_TYPE_TOP). The name <top
+(required)> isn't very instructive and it is not unique. So we replace
+(required) with a file name. For example:
+
+ <top /tmp/l.rb> vs <top (required)>
+
+and also
+
+ <RubyVM::InstructionSequence:<compiled>> vs.
+ <RubyVM::InstructionSequence:<compiled>@<compiled>>
+
+Motivation: Instruction sequence names become important the more one
+needs to access them.  In a debugger we use instruction sequences in
+describing where to stop or in showing disassembly, so making things
+look more descriptive is helpful.
+
+diff --git a/iseq.c b/iseq.c
+index d86fd4d..450ea64 100644
+--- a/iseq.c
++++ b/iseq.c
+@@ -854,9 +854,14 @@ iseq_inspect(VALUE self)
+         return rb_sprintf("#<%s: uninitialized>", rb_obj_classname(self));
+     }
+
+-    return rb_sprintf("<%s:%s@%s>",
+-                      rb_obj_classname(self),
+-		      RSTRING_PTR(iseq->location.label), RSTRING_PTR(iseq->location.path));
++    if (ISEQ_TYPE_TOP == iseq->type)
++	return rb_sprintf("<%s:%s>",
++			  rb_obj_classname(self),
++			  RSTRING_PTR(iseq->location.label));
++    else
++	return rb_sprintf("<%s:%s@%s>",
++			  rb_obj_classname(self),
++			  RSTRING_PTR(iseq->location.label), RSTRING_PTR(iseq->location.path));
+ }
+
+ /*
+diff --git a/load.c b/load.c
+index f31b7ae..ef14f76 100644
+--- a/load.c
++++ b/load.c
+@@ -580,6 +580,7 @@ static inline void
+ rb_load_internal0(rb_thread_t *th, VALUE fname, int wrap)
+ {
+     int state;
++    char iseq_name[MAXPATHLEN];
+     volatile VALUE wrapper = th->top_wrapper;
+     volatile VALUE self = th->top_self;
+     volatile int loaded = FALSE;
+@@ -610,7 +611,8 @@ rb_load_internal0(rb_thread_t *th, VALUE fname, int wrap)
+ 	th->mild_compile_error++;
+ 	node = (NODE *)rb_load_file_str(fname);
+ 	loaded = TRUE;
+-	iseq = rb_iseq_new_top(node, rb_str_new2("<top (required)>"), fname, rb_realpath_internal(Qnil, fname, 1), Qfalse);
++	snprintf(iseq_name, sizeof(iseq_name), "<top %s>", RSTRING_PTR(fname));
++	iseq = rb_iseq_new_top(node, rb_str_new2(iseq_name), fname, rb_realpath_internal(Qnil, fname, 1), Qfalse);
+ 	th->mild_compile_error--;
+ 	rb_iseq_eval(iseq);
+     }
+diff --git a/test/debugger-ext/test-iseq-name.rb b/test/debugger-ext/test-iseq-name.rb
+new file mode 100644
+index 0000000..3c76c0e
+--- /dev/null
++++ b/test/debugger-ext/test-iseq-name.rb
+@@ -0,0 +1,8 @@
++require 'test/unit'
++class TestISeqSource < Test::Unit::TestCase
++  def test_source
++      iseq = RubyVM::InstructionSequence.new("x=1")
++      assert_equal "<RubyVM::InstructionSequence:<compiled>>", iseq.inspect
++  end
++
++end
