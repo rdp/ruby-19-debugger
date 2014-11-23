@@ -25,9 +25,9 @@ case $patchfile in
 	    000-pc-modify.patch \
 	    000-testit.patch \
 	    130-brkpt.patch \
-	    210-iseq-field-access.patch
-#	    210-iseq-field-access.patch \
-#	    215-iseq-field-access.patch
+	    210-iseq-field-access.patch \
+	    215-iseq-field-access.patch \
+	    220-iseq-eval-source-save.patch
 	do
 	    patch_file=${dirname}/../2.1.5/$file
 	    echo -- Applying patches in $patch_file ... | tee -a patches_applied.log

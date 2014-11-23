@@ -224,11 +224,11 @@ index 9365ca9..6487ca2 100644
      rb_define_method(rb_cISeq, "orig",             rb_iseq_orig, 0) ;
      rb_define_method(rb_cISeq, "self",             rb_iseq_self, 0) ;
      rb_define_method(rb_cISeq, "type",             rb_iseq_type, 0) ;
-diff --git a/test/debugger-ext/test-iseq-source.rb b/test/debugger-ext/test-iseq-source.rb
+diff --git /dev/null b/test/debugger-ext/test-iseq-source.rb
 new file mode 100644
 index 0000000..6ff16ee
 --- /dev/null
-+++ b/test/debugger-ext/test-iseq-source.rb
++++ b/test/debugger-ext/test-iseq-field-access2.rb
 @@ -0,0 +1,22 @@
 +require 'test/unit'
 +class TestISeqSource < Test::Unit::TestCase

@@ -1,0 +1,141 @@
+Adds Instruction#source method. If this instruction sequence came from
+eval(), the string of the source is returned from this method.
+
+TODO: figure out how to have this "eval_source" field filled out more
+often.
+
+diff --git a/iseq.c b/iseq.c
+index 6487ca2..d86fd4d 100644
+--- a/iseq.c
++++ b/iseq.c
+@@ -426,6 +426,17 @@ make_compile_option_value(rb_compile_option_t *option)
+     return opt;
+ }
+
++static rb_iseq_t *
++iseq_check(VALUE val)
++{
++    rb_iseq_t *iseq;
++    GetISeqPtr(val, iseq);
++    if (!iseq->location.label) {
++	rb_raise(rb_eTypeError, "uninitialized InstructionSequence");
++    }
++    return iseq;
++}
++
+ VALUE
+ rb_iseq_new(NODE *node, VALUE name, VALUE path, VALUE absolute_path,
+ 	    VALUE parent, enum iseq_type type)
+@@ -450,6 +461,18 @@ rb_iseq_new_main(NODE *node, VALUE path, VALUE absolute_path)
+ 				parent, ISEQ_TYPE_MAIN, &COMPILE_OPTION_DEFAULT);
+ }
+
++/**
++ * Return String used in the creation of this instruction sequence. If none
++ * recorded, 0 (or false) is returned.
++ */
++VALUE
++rb_iseq_eval_source(VALUE self)
++{
++    rb_iseq_t *iseq = iseq_check(self);
++    rb_secure(1);
++    return iseq->source;
++}
++
+ static VALUE
+ rb_iseq_new_with_bopt_and_opt(NODE *node, VALUE name, VALUE path, VALUE absolute_path, VALUE first_lineno,
+ 				VALUE parent, enum iseq_type type, VALUE bopt,
+@@ -803,17 +826,6 @@ iseq_s_compile_option_get(VALUE self)
+     return make_compile_option_value(&COMPILE_OPTION_DEFAULT);
+ }
+
+-static rb_iseq_t *
+-iseq_check(VALUE val)
+-{
+-    rb_iseq_t *iseq;
+-    GetISeqPtr(val, iseq);
+-    if (!iseq->location.label) {
+-	rb_raise(rb_eTypeError, "uninitialized InstructionSequence");
+-    }
+-    return iseq;
+-}
+-
+ /*
+  *  call-seq:
+  *     iseq.eval -> obj
+@@ -2544,6 +2556,7 @@ Init_ISeq(void)
+     rb_define_method(rb_cISeq, "compile_options",  rb_iseq_compile_options, 0) ;
+     rb_define_method(rb_cISeq, "encoded",          rb_iseq_iseq_encoded, 0) ;
+     rb_define_method(rb_cISeq, "equal?",           rb_iseq_equal, 1) ;
++    rb_define_method(rb_cISeq, "eval_source",      rb_iseq_eval_source, 0);
+     rb_define_method(rb_cISeq, "iseq_size",        rb_iseq_iseq_size, 0) ;
+     rb_define_method(rb_cISeq, "klass",            rb_iseq_klass, 0) ;
+     rb_define_method(rb_cISeq, "local_iseq",       rb_iseq_local_iseq, 0) ;
+diff --git a/test/debugger-ext/test-iseq-field-access2.rb b/test/debugger-ext/test-iseq-field-access2.rb
+new file mode 100644
+index 0000000..6ff16ee
+--- /dev/null
++++ b/test/debugger-ext/test-iseq-field-access2.rb
+@@ -0,0 +1,22 @@
++require 'test/unit'
++class TestISeqSource < Test::Unit::TestCase
++  def test_source
++      iseq = RubyVM::InstructionSequence.new("x=1")
++      assert_equal  0, iseq.argc
++      assert_operator 0, :<=, iseq.iseq_size
++      assert iseq.disasm.is_a?(String)
++      assert_equal 'x', iseq.local_name(0), 'getting first local name'
++      assert iseq.encoded
++      assert_equal 1, iseq.eval
++      assert_nil iseq.parent
++      assert iseq.equal?(iseq)
++      iseq2 = RubyVM::InstructionSequence.new("x=1")
++      assert iseq.equal?(iseq2), "equal but different iseq's"
++      iseq3 = RubyVM::InstructionSequence.new("x=3")
++      assert iseq.equal?(iseq3), "different iseq's"
++      # NOTE a later patch save compile options.
++      # at this patch and before alone iseq.compile_options are nil
++      # p iseq.compile_options
++  end
++
++end
+diff --git a/test/debugger-ext/test-iseq-source.rb b/test/debugger-ext/test-iseq-source.rb
+index 6ff16ee..54cddb4 100644
+--- /dev/null
++++ b/test/debugger-ext/test-iseq-source.rb
+@@ -1,0 +1,8 @@
++ require 'test/unit'
++ class TestISeqSource < Test::Unit::TestCase
++   def test_source
++      iseq = RubyVM::InstructionSequence.new("x=1; z=3")
++      assert_equal false, iseq.eval_source, 'eval_source of non-eval is false'
++      # FIXME figure out how to git iseq for an eval instruction sequence.
++   end
++ end
+diff --git a/vm_core.h b/vm_core.h
+index 5383551..75edb5b 100644
+--- a/vm_core.h
++++ b/vm_core.h
+@@ -324,6 +324,10 @@ struct rb_iseq_struct {
+
+     /* Used to set a breakpoint at a VM instruction */
+     unsigned char *breakpoints;
++
++    /* If this instruction sequence came from eval, the string of the
++       source as a String. */
++    VALUE source;
+ };
+
+ enum ruby_special_exceptions {
+diff --git a/vm_eval.c b/vm_eval.c
+index e55841d..d9a9415 100644
+--- a/vm_eval.c
++++ b/vm_eval.c
+@@ -1271,6 +1271,7 @@ eval_string_with_cref(VALUE self, VALUE src, VALUE scope, NODE *const cref_arg,
+
+ 	/* save new env */
+ 	GetISeqPtr(iseqval, iseq);
++	iseq->source = src;
+ 	if (bind && iseq->local_table_size > 0) {
+ 	    bind->env = rb_vm_make_env_object(th, th->cfp);
+ 	}
