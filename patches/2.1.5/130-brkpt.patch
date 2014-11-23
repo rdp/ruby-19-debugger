@@ -1,0 +1,131 @@
+Add support for breakpoints in the VM. This allows debuggers to run at full
+speed.
+
+External routines added to RubyVM::InstructionSequence (in brkpt.c):
+  brkpt_alloc - allocate breakpoint vector
+  brkpt_set   - set a breakpoint at a given VM offset
+  brkpt_unset - unset a breakpoint
+  brkpt_get   - see if a breakpoint is set a a particlar VM offset
+  brkpt_get   - get list of breakpoints set in this instruction sequence
+
+Initial timing evidence by Mark Moseley suggests that the
+overhead is negligible.
+
+Depends on 000-pc-modify patch to allow access to pc (I think).
+
+diff --git a/common.mk b/common.mk
+index de1b671..cb9b47b 100644
+--- a/common.mk
++++ b/common.mk
+@@ -38,6 +38,7 @@ ENC_MK        = enc.mk
+
+ COMMONOBJS    = array.$(OBJEXT) \
+ 		bignum.$(OBJEXT) \
++		brkpt.$(OBJEXT) \
+ 		class.$(OBJEXT) \
+ 		compar.$(OBJEXT) \
+ 		complex.$(OBJEXT) \
+diff --git a/include/ruby/ruby.h b/include/ruby/ruby.h
+index 10ac202..9fcdaff 100644
+--- a/include/ruby/ruby.h
++++ b/include/ruby/ruby.h
+@@ -1205,7 +1205,7 @@ void rb_gc_writebarrier_unprotect_promoted(VALUE obj);
+  * - RB_OBJ_WRITTEN(a, oldv, b): WB for new reference from `a' to `b'.
+  *     This doesn't write any values, but only a WB declaration.
+  *     `oldv' is replaced value with `b' (not used in current Ruby).
+- *
++ *
+  * NOTE: The following core interfaces can be changed in the future.
+  *       Please catch up if you want to insert WB into C-extensions
+  *       correctly.
+@@ -1712,13 +1712,14 @@ int ruby_native_thread_p(void);
+ #define RUBY_EVENT_C_CALL    0x0020
+ #define RUBY_EVENT_C_RETURN  0x0040
+ #define RUBY_EVENT_RAISE     0x0080
+-#define RUBY_EVENT_ALL       0x00ff
++#define RUBY_EVENT_BRKPT     0x0100
++#define RUBY_EVENT_ALL       0x01ff
+
+ /* for TracePoint extended events */
+-#define RUBY_EVENT_B_CALL            0x0100
+ #define RUBY_EVENT_B_RETURN          0x0200
+ #define RUBY_EVENT_THREAD_BEGIN      0x0400
+ #define RUBY_EVENT_THREAD_END        0x0800
++#define RUBY_EVENT_B_CALL            0x1000
+ #define RUBY_EVENT_TRACEPOINT_ALL    0xffff
+
+ /* special events */
+diff --git a/iseq.c b/iseq.c
+index b700c6e..dc14e28 100644
+--- a/iseq.c
++++ b/iseq.c
+@@ -2273,6 +2273,8 @@ rb_iseq_line_trace_specify(VALUE iseqval, VALUE pos, VALUE set)
+  *  you see.
+  */
+
++extern void Init_Brkpt(void); /* In brkpt.c */
++
+ void
+ Init_ISeq(void)
+ {
+@@ -2319,4 +2321,7 @@ Init_ISeq(void)
+     rb_define_singleton_method(rb_cISeq, "disasm", iseq_s_disasm, 1);
+     rb_define_singleton_method(rb_cISeq, "disassemble", iseq_s_disasm, 1);
+     rb_define_singleton_method(rb_cISeq, "of", iseq_s_of, 1);
++
++    Init_Brkpt();
++
+ }
+diff --git a/vm_core.h b/vm_core.h
+index e594569..5383551 100644
+--- a/vm_core.h
++++ b/vm_core.h
+@@ -321,6 +321,9 @@ struct rb_iseq_struct {
+
+     /* used at compile time */
+     struct iseq_compile_data *compile_data;
++
++    /* Used to set a breakpoint at a VM instruction */
++    unsigned char *breakpoints;
+ };
+
+ enum ruby_special_exceptions {
+diff --git a/vm_exec.h b/vm_exec.h
+index 3de601f..6b677d5 100644
+--- a/vm_exec.h
++++ b/vm_exec.h
+@@ -17,12 +17,17 @@ typedef unsigned long lindex_t;
+ typedef VALUE GENTRY;
+ typedef rb_iseq_t *ISEQ;
+
+-#ifdef __GCC__
++/* Rocky: VM-assisted breakpoint handling. */
++#define TEST_AND_HANDLE_BREAKPOINT(cfp, pc)				\
++    if (UNLIKELY(cfp->iseq &&						\
++		 cfp->iseq->breakpoints &&				\
++		 cfp->iseq->breakpoints[pc - cfp->iseq->iseq_encoded])) \
++	EXEC_EVENT_HOOK(th, RUBY_EVENT_BRKPT, cfp->self,		\
++			0, 0, Qundef)
++
+ /* TODO: machine dependent prefetch instruction */
+-#define PREFETCH(pc)
+-#else
+-#define PREFETCH(pc)
+-#endif
++#define PREFETCH(pc)							\
++    TEST_AND_HANDLE_BREAKPOINT(GET_CFP(), pc)
+
+ #if VMDEBUG > 0
+ #define debugs printf
+diff --git a/vm_trace.c b/vm_trace.c
+index 2047d5a..2cea5f2 100644
+--- a/vm_trace.c
++++ b/vm_trace.c
+@@ -565,6 +565,7 @@ static const char *
+ get_event_name(rb_event_flag_t event)
+ {
+     switch (event) {
++      case RUBY_EVENT_BRKPT: 	return "brkpt";
+       case RUBY_EVENT_LINE:     return "line";
+       case RUBY_EVENT_CLASS:    return "class";
+       case RUBY_EVENT_END:      return "end";
