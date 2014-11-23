@@ -252,24 +252,3 @@ index 0000000..6ff16ee
 +  end
 +
 +end
-diff --git a/test/debugger-ext/testit.sh b/test/debugger-ext/testit.sh
-index ab610a2..4d1dd76 100755
---- a/test/debugger-ext/testit.sh
-+++ b/test/debugger-ext/testit.sh
-@@ -1,6 +1,6 @@
- #!/bin/bash
- if (( $# == 0 )) ; then
--    args=test_*.rb
-+    args=test-*.rb
- elif [[ $1 == 'shortest' ]] ; then
-     exec $SHELL $0 | grep 'failure'
- elif [[ $1 == 'short' ]] ; then
-@@ -8,7 +8,7 @@ elif [[ $1 == 'short' ]] ; then
- else
-     args=$@
- fi
--for t in $args ; do
-+for t in $args ; do
-     echo "===== $t ====="
-     ../../miniruby -I../../lib -I../.. $t
-     # echo ../../miniruby -I../../lib -I../.. $t

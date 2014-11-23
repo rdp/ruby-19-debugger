@@ -94,7 +94,7 @@ new file mode 100644
 index 0000000..8dc083d
 --- /dev/null
 +++ b/test/debugger-ext/test-iseq-field-access.rb
-@@ -0,0 +1,41 @@
+@@ -0,0 +1,39 @@
 +require 'test/unit'
 +
 +class TestISeqBrkpt < Test::Unit::TestCase

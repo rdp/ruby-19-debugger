@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Patches Ruby source. 
+# Patches Ruby source.
 
-# usage patch-ruby.sh [combined|1.9.2|1.9.3]
+# usage patch-ruby.sh [combined|1.9.2|1.9.3|2.1.5]
 
 # Environment variable PATCH can be set to specify which patch program
 # to use. (For example, on Solaris "patch" might not be the right
 # one).
 
-# 
+#
 function __FILE__ {
     echo ${BASH_SOURCE[0]}
 }
@@ -17,7 +17,24 @@ dirname=${file%/*}
 
 patchfile=${1:-'combined'}
 case $patchfile in
-    1.9.3 | head | trunk )
+    2.1.5 | head | trunk )
+	for file in \
+	    00-extern-access.patch \
+	    000-config.patch \
+	    000-error.patch \
+	    000-pc-modify.patch \
+	    000-testit.patch \
+	    130-brkpt.patch \
+	    210-iseq-field-access.patch
+#	    210-iseq-field-access.patch \
+#	    215-iseq-field-access.patch
+	do
+	    patch_file=${dirname}/../2.1.5/$file
+	    echo -- Applying patches in $patch_file ... | tee -a patches_applied.log
+	    patch -p1 < $patch_file
+	done
+	;;
+    1.9.3  )
 	for file in \
 	    000-config.patch \
 	    000-error.patch \
@@ -45,13 +62,13 @@ case $patchfile in
 	    380-method-extra.patch \
 	    390-trace-yield.patch \
 	    400-trace-hook-extra.patch
-	do 
+	do
 	    patch_file=${dirname}/../1.9.3/$file
 	    echo -- Applying patches in $patch_file ... | tee -a patches_applied.log
 	    patch -p1 < $patch_file
 	done
 	;;
-    combined ) 
+    combined )
 	file=ruby-1.9.3-combined.patch
 	patch_file=${dirname}/../$file
 	echo -- Applying patches in $patch_file
@@ -82,7 +99,7 @@ case $patchfile in
 	    13-hook-error-recover.patch \
 	    14-eval-iseq-name.patch \
 	    15-send-yield-hook.patch
-	do 
+	do
 	    patch_file=${dirname}/../1.9.2/$file
 	    echo -- Applying patches in $patch_file ... | tee -a patches_applied.log
 	    $patch -p0 < $patch_file
