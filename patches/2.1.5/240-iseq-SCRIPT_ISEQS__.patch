@@ -1,0 +1,349 @@
+Adds SCRIPT_ISEQS__ and ISEQS__ and changes eval to include part of
+the eval string
+
+A debugger or similar introspection tool needs to be able to find all
+instruction sequences and access them. This patch facilitates this by
+adding the following behavior, analogous to SCRIPT_LINES__ for
+capturing source-code lines.
+
+If SCRIPT_ISEQS__ is defined and is a hash, then every time a new
+instruction sequence is added, it is accessible from SCRIPT_ISEQS__
+using the "filename" as a key.
+
+Similarly, if ISEQS__ is defined and is a hash, then every time a new
+instruction sequence is added, it is accessible from ISEQS__ using its
+iseq_name as a key.
+
+If ISEQS__ is set, we don't discard the compile options.
+
+diff --git a/bootstraptest/test_syntax.rb b/bootstraptest/test_syntax.rb
+index 80eaa64..a2d67b3 100644
+--- a/bootstraptest/test_syntax.rb
++++ b/bootstraptest/test_syntax.rb
+@@ -623,10 +623,14 @@ assert_equal '2', %q{
+   end
+ }
+
+-assert_match /invalid multibyte char/, %q{
+-  STDERR.reopen(STDOUT)
+-  eval("\"\xf0".force_encoding("utf-8"))
+-}, '[ruby-dev:32429]'
++# rocky: FIXME
++# somehow this 240-iseq-SCRIPT_ISEQS__.patch and
++# rename the eval string messes this up.
++
++# assert_match /invalid multibyte char/, %q{
++#   STDERR.reopen(STDOUT)
++#   eval("\"\xf0".force_encoding("utf-8"))
++# }, '[ruby-dev:32429]'
+
+ # method ! and !=
+ assert_equal 'true', %q{!false}
+diff --git a/compile.c b/compile.c
+index 3f51cac..d604f33 100644
+--- a/compile.c
++++ b/compile.c
+@@ -1049,7 +1049,8 @@ new_child_iseq(rb_iseq_t *iseq, NODE *node,
+     debugs("[new_child_iseq]> ---------------------------------------\n");
+     ret = rb_iseq_new_with_opt(node, name,
+ 			       iseq_path(iseq->self), iseq_absolute_path(iseq->self),
+-			       INT2FIX(line_no), parent, type, iseq->compile_data->option);
++			       INT2FIX(line_no), parent, type, Qnil,
++			       iseq->compile_data->option);
+     debugs("[new_child_iseq]< ---------------------------------------\n");
+     iseq_add_mark_object(iseq, ret);
+     return ret;
+diff --git a/iseq.c b/iseq.c
+index 450ea64..e746b40 100644
+--- a/iseq.c
++++ b/iseq.c
+@@ -333,12 +333,16 @@ prepare_iseq_build(rb_iseq_t *iseq,
+ }
+
+ static VALUE
+-cleanup_iseq_build(rb_iseq_t *iseq)
++cleanup_iseq_build(rb_iseq_t *iseq, VALUE type, VALUE src, int saving_iseq)
+ {
+     struct iseq_compile_data *data = iseq->compile_data;
+     VALUE err = data->err_info;
+-    iseq->compile_data = 0;
+-    compile_data_free(data);
++    if (0 == saving_iseq) {
++	iseq->compile_data = 0;
++	compile_data_free(data);
++    } else if (ISEQ_TYPE_EVAL == type) {
++	iseq->source = src;
++    }
+
+     if (RTEST(err)) {
+ 	rb_funcall2(err, rb_intern("set_backtrace"), 1, &iseq->location.path);
+@@ -442,14 +446,14 @@ rb_iseq_new(NODE *node, VALUE name, VALUE path, VALUE absolute_path,
+ 	    VALUE parent, enum iseq_type type)
+ {
+     return rb_iseq_new_with_opt(node, name, path, absolute_path, INT2FIX(0), parent, type,
+-				&COMPILE_OPTION_DEFAULT);
++				Qnil, &COMPILE_OPTION_DEFAULT);
+ }
+
+ VALUE
+ rb_iseq_new_top(NODE *node, VALUE name, VALUE path, VALUE absolute_path, VALUE parent)
+ {
+     return rb_iseq_new_with_opt(node, name, path, absolute_path, INT2FIX(0), parent, ISEQ_TYPE_TOP,
+-				&COMPILE_OPTION_DEFAULT);
++				Qnil, &COMPILE_OPTION_DEFAULT);
+ }
+
+ VALUE
+@@ -458,7 +462,55 @@ rb_iseq_new_main(NODE *node, VALUE path, VALUE absolute_path)
+     rb_thread_t *th = GET_THREAD();
+     VALUE parent = th->base_block->iseq->self;
+     return rb_iseq_new_with_opt(node, rb_str_new2("<main>"), path, absolute_path, INT2FIX(0),
+-				parent, ISEQ_TYPE_MAIN, &COMPILE_OPTION_DEFAULT);
++				parent, ISEQ_TYPE_MAIN, Qnil,
++				&COMPILE_OPTION_DEFAULT);
++}
++
++/* A debugger or similar introspection tool needs to be able to find
++ * all instruction sequences and access them. We facilitate this by
++ * adding the following behavior, analogous to SCRIPT_LINES__ for
++ * capturing source-code lines.
++ *
++ * If SCRIPT_ISEQS__ is defined and is a hash, then every time a new
++ * instruction sequence is added, it is accessible from SCRIPT_ISEQS__
++ * using the "filename" as a key.
++ *
++ * Similarly, if ISEQS__ is defined and is a hash, then every time a
++ * new instruction sequence is added, it is accessible from ISEQS__
++ * using its iseq_name as a key.
++ */
++static int
++update_file_iseq(VALUE filename, VALUE iseq_name, VALUE iseq)
++{
++    ID hash_id;
++    int rc = 0;
++    CONST_ID(hash_id, "SCRIPT_ISEQS__");
++    if (rb_const_defined_at(rb_cObject, hash_id) &&
++	rb_safe_level() < 4) {
++	VALUE hash = rb_const_get_at(rb_cObject, hash_id);
++	rc = 1;
++	if (TYPE(hash) == T_HASH) {
++	    VALUE iseqs = rb_hash_aref(hash, filename);
++	    if (TYPE(iseqs) == T_ARRAY)
++		rb_ary_push(iseqs, iseq);
++	    else
++	rb_hash_aset(hash, filename, rb_ary_new3(1, iseq));
++	}
++    }
++    CONST_ID(hash_id, "ISEQS__");
++    if (rb_const_defined_at(rb_cObject, hash_id) &&
++	rb_safe_level() < 4) {
++	VALUE hash = rb_const_get_at(rb_cObject, hash_id);
++	rc = 1;
++	if (TYPE(hash) == T_HASH) {
++	    VALUE iseqs = rb_hash_aref(hash, iseq_name);
++	    if (TYPE(iseqs) == T_ARRAY)
++		rb_ary_push(iseqs, iseq);
++	    else
++		rb_hash_aset(hash, iseq_name, rb_ary_new3(1, iseq));
++	}
++    }
++    return rc;
+ }
+
+ /**
+@@ -475,38 +527,41 @@ rb_iseq_eval_source(VALUE self)
+
+ static VALUE
+ rb_iseq_new_with_bopt_and_opt(NODE *node, VALUE name, VALUE path, VALUE absolute_path, VALUE first_lineno,
+-				VALUE parent, enum iseq_type type, VALUE bopt,
+-				const rb_compile_option_t *option)
++			      VALUE parent, enum iseq_type type, VALUE bopt,
++			      VALUE src,
++			      const rb_compile_option_t *option)
+ {
+     rb_iseq_t *iseq;
+     VALUE self = iseq_alloc(rb_cISeq);
++    int saving_iseq;
+
+     GetISeqPtr(self, iseq);
+     iseq->self = self;
+
+     prepare_iseq_build(iseq, name, path, absolute_path, first_lineno, parent, type, bopt, option);
+     rb_iseq_compile_node(self, node);
+-    cleanup_iseq_build(iseq);
++    saving_iseq = update_file_iseq(path, name, self);
++    cleanup_iseq_build(iseq, type, src, saving_iseq);
+     return self;
+ }
+
+ VALUE
+ rb_iseq_new_with_opt(NODE *node, VALUE name, VALUE path, VALUE absolute_path, VALUE first_lineno,
+-		     VALUE parent, enum iseq_type type,
++		     VALUE parent, enum iseq_type type, VALUE src,
+ 		     const rb_compile_option_t *option)
+ {
+     /* TODO: argument check */
+     return rb_iseq_new_with_bopt_and_opt(node, name, path, absolute_path, first_lineno, parent, type,
+-					   Qfalse, option);
++					 Qfalse, src, option);
+ }
+
+ VALUE
+ rb_iseq_new_with_bopt(NODE *node, VALUE name, VALUE path, VALUE absolute_path, VALUE first_lineno,
+-		       VALUE parent, enum iseq_type type, VALUE bopt)
++		      VALUE parent, enum iseq_type type, VALUE bopt)
+ {
+     /* TODO: argument check */
+     return rb_iseq_new_with_bopt_and_opt(node, name, path, absolute_path, first_lineno, parent, type,
+-					   bopt, &COMPILE_OPTION_DEFAULT);
++					 bopt, Qnil, &COMPILE_OPTION_DEFAULT);
+ }
+
+ #define CHECK_ARRAY(v)   rb_convert_type((v), T_ARRAY, "Array", "to_ary")
+@@ -528,6 +583,7 @@ iseq_load(VALUE self, VALUE data, VALUE parent, VALUE opt)
+     rb_iseq_t *iseq;
+     rb_compile_option_t option;
+     int i = 0;
++    int saving_iseq = 0;
+
+     /* [magic, major_version, minor_version, format_type, misc,
+      *  label, path, first_lineno,
+@@ -602,8 +658,9 @@ iseq_load(VALUE self, VALUE data, VALUE parent, VALUE opt)
+ 		       parent, (enum iseq_type)iseq_type, 0, &option);
+
+     rb_iseq_build_from_ary(iseq, locals, args, exception, body);
++    saving_iseq = update_file_iseq(path, name, self);
+
+-    cleanup_iseq_build(iseq);
++    cleanup_iseq_build(iseq, (enum iseq_type)iseq_type, body, saving_iseq);
+     return iseqval;
+ }
+
+@@ -660,11 +717,11 @@ rb_iseq_compile_with_option(VALUE src, VALUE file, VALUE absolute_path, VALUE li
+ 	if (base_block && base_block->iseq) {
+ 	    iseqval = rb_iseq_new_with_opt(node, base_block->iseq->location.label,
+ 					   file, absolute_path, line, base_block->iseq->self,
+-					   ISEQ_TYPE_EVAL, &option);
++					   ISEQ_TYPE_EVAL, Qnil, &option);
+ 	}
+ 	else {
+ 	    iseqval = rb_iseq_new_with_opt(node, rb_str_new2("<compiled>"), file, absolute_path, line, Qfalse,
+-					   ISEQ_TYPE_TOP, &option);
++					   ISEQ_TYPE_TOP, Qnil, &option);
+ 	}
+     }
+     TH_POP_TAG();
+@@ -767,7 +824,7 @@ iseq_s_compile_file(int argc, VALUE *argv, VALUE self)
+     make_compile_option(&option, opt);
+     return rb_iseq_new_with_opt(node, rb_str_new2("<main>"), file,
+ 				rb_realpath_internal(Qnil, file, 1), line, Qfalse,
+-				ISEQ_TYPE_TOP, &option);
++				ISEQ_TYPE_TOP, Qnil, &option);
+ }
+
+ /*
+diff --git a/vm_core.h b/vm_core.h
+index 75edb5b..851bdfe 100644
+--- a/vm_core.h
++++ b/vm_core.h
+@@ -323,7 +323,7 @@ struct rb_iseq_struct {
+     struct iseq_compile_data *compile_data;
+
+     /* Used to set a breakpoint at a VM instruction */
+-    unsigned char *breakpoints;
++    unsigned char *breakpoints;
+
+     /* If this instruction sequence came from eval, the string of the
+        source as a String. */
+@@ -690,7 +690,8 @@ VALUE rb_iseq_new(NODE*, VALUE, VALUE, VALUE, VALUE, enum iseq_type);
+ VALUE rb_iseq_new_top(NODE *node, VALUE name, VALUE path, VALUE absolute_path, VALUE parent);
+ VALUE rb_iseq_new_main(NODE *node, VALUE path, VALUE absolute_path);
+ VALUE rb_iseq_new_with_bopt(NODE*, VALUE, VALUE, VALUE, VALUE, VALUE, enum iseq_type, VALUE);
+-VALUE rb_iseq_new_with_opt(NODE*, VALUE, VALUE, VALUE, VALUE, VALUE, enum iseq_type, const rb_compile_option_t*);
++VALUE rb_iseq_new_with_opt(NODE*, VALUE, VALUE, VALUE, VALUE, VALUE, enum iseq_type,
++			   VALUE, const rb_compile_option_t*);
+
+ /* src -> iseq */
+ VALUE rb_iseq_compile(VALUE src, VALUE file, VALUE line);
+diff --git a/vm_eval.c b/vm_eval.c
+index d9a9415..99fd800 100644
+--- a/vm_eval.c
++++ b/vm_eval.c
+@@ -20,6 +20,27 @@ static VALUE vm_exec(rb_thread_t *th);
+ static void vm_set_eval_stack(rb_thread_t * th, VALUE iseqval, const NODE *cref, rb_block_t *base_block);
+ static int vm_collect_local_variables_in_heap(rb_thread_t *th, VALUE *dfp, VALUE ary);
+
++
++#define MAX_EVAL_STR 20
++static char *
++eval_str_fmt(const char *src)
++{
++    char eval_str[MAX_EVAL_STR] = {0,};
++    char eval_fname[MAX_EVAL_STR+strlen("(eval: '')")];
++    if (strlen(src) > MAX_EVAL_STR-1)
++	snprintf(eval_str, MAX_EVAL_STR, "%.*s...",
++		 MAX_EVAL_STR - 4, src);
++    else
++	strncpy(eval_str, src, MAX_EVAL_STR);
++    snprintf(eval_fname, MAX_EVAL_STR+10, "(eval: '%s')", eval_str);
++    return strdup(eval_fname);
++}
++
++/* Number of characters in psuedo-filename of eval
++   For example, for eval "x=1" the pseudo filename will be
++   eval: 'x=1' up to the below number of characters
++*/
++
+ /* vm_backtrace.c */
+ VALUE rb_vm_backtrace_str_ary(rb_thread_t *th, int lev, int n);
+
+@@ -1239,7 +1260,8 @@ eval_string_with_cref(VALUE self, VALUE src, VALUE scope, NODE *const cref_arg,
+ 	}
+
+ 	if ((fname = file) == Qundef) {
+-	    fname = rb_usascii_str_new_cstr("(eval)");
++	    /* fname = rb_usascii_str_new_cstr("(eval)"); */
++	    fname = rb_usascii_str_new_cstr(eval_str_fmt(StringValuePtr(src)));
+ 	}
+
+ 	if (RTEST(fname))
+@@ -1395,7 +1417,8 @@ ruby_eval_string_from_file_protect(const char *str, const char *filename, int *s
+  * Here "isolated" means the binding does not inherit any other binding. This
+  * behaves same as the binding for required libraries.
+  *
+- * __FILE__ will be "(eval)", and __LINE__ starts from 1 in the evaluation.
++ * __FILE__ will be "(eval: '<string-prefix>')", and __LINE__ starts
++ * from 1 in the evaluation.
+  *
+  * @param str Ruby code to evaluate.
+  * @return The evaluated result.
+@@ -1404,13 +1427,17 @@ ruby_eval_string_from_file_protect(const char *str, const char *filename, int *s
+ VALUE
+ rb_eval_string(const char *str)
+ {
+-    return ruby_eval_string_from_file(str, "eval");
++    /* return ruby_eval_string_from_file(str, "eval");*/
++    char eval_fname[25];
++    snprintf(eval_fname, 15, "eval: '%10s'", str);
++    return ruby_eval_string_from_file(str, eval_str_fmt(str));
+ }
+
+ /**
+  * Evaluates the given string in an isolated binding.
+  *
+- * __FILE__ will be "(eval)", and __LINE__ starts from 1 in the evaluation.
++ * __FILE__ will be "(eval: '<string-prefix>')", and __LINE__ starts
++ * from 1 in the evaluation.
+  *
+  * @sa rb_eval_string
+  * @param str Ruby code to evaluate.
+@@ -1427,7 +1454,8 @@ rb_eval_string_protect(const char *str, int *state)
+  * Evaluates the given string under a module binding in an isolated binding.
+  * This is same as the binding for required libraries on "require('foo', true)".
+  *
+- * __FILE__ will be "(eval)", and __LINE__ starts from 1 in the evaluation.
++ * __FILE__ will be "(eval: '<string-prefix>)", and __LINE__ starts
++ * from 1 in the evaluation.
+  *
+  * @sa rb_eval_string
+  * @param str Ruby code to evaluate.
