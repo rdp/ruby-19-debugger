@@ -32,7 +32,8 @@ case $patchfile in
 	    240-iseq-SCRIPT_ISEQS__.patch \
 	    245-method-arity.patch \
 	    310-os-startup.patch \
-	    380-method-extra.patch
+	    380-method-extra.patch \
+	    390-proc-iseq.patch
 	do
 	    patch_file=${dirname}/../2.1.5/$file
 	    echo -- Applying patches in $patch_file ... | tee -a patches_applied.log
