@@ -29,10 +29,10 @@ case $patchfile in
 	    215-iseq-field-access.patch \
 	    220-iseq-eval-source-save.patch \
 	    230-iseq-top-name.patch \
-	    240-iseq-SCRIPT_ISEQS__.patch
-	    # 240-iseq-SCRIPT_ISEQS__.patch \
-	    # 245-method-arity.patch \
-	    # 310-os-startup.patch
+	    240-iseq-SCRIPT_ISEQS__.patch \
+	    245-method-arity.patch \
+	    310-os-startup.patch \
+	    380-method-extra.patch
 	do
 	    patch_file=${dirname}/../2.1.5/$file
 	    echo -- Applying patches in $patch_file ... | tee -a patches_applied.log

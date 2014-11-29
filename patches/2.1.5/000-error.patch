@@ -7,7 +7,7 @@ index 0000000..9b9f6f1
 +++ b/test/debugger-ext/test-000-error.sh
 @@ -0,0 +1,2 @@
 +#!/bin/bash
-+(cd .. && ./miniruby -I./lib -I. -I.ext/common  ./tool/runruby.rb --extout=.ext  -- --disable-gems  ./test/ruby/test_rubyoptions.rb)
++(cd ../.. && ./miniruby -I./lib -I. -I.ext/common  ./tool/runruby.rb --extout=.ext  -- --disable-gems  ./test/ruby/test_rubyoptions.rb)
 diff --git a/test/ruby/test_rubyoptions.rb b/test/ruby/test_rubyoptions.rb
 index b6be501..7dfb88c 100644
 --- a/test/ruby/test_rubyoptions.rb
