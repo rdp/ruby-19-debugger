@@ -138,7 +138,7 @@ index 4383790..59a45bc 100644
      rb_define_global_function("binding", rb_f_binding, 0);
  }
 -
-diff --git a/test/debugger-ext/test-iseq_hash.rb b/test/debugger-ext/test-iseq_hash.rb
+diff --git a/test/debugger-ext/test-iseq-hash.rb b/test/debugger-ext/test-iseq-hash.rb
 index 279f5ef..4e0de4a 100644
 --- a/test/debugger-ext/test-iseq-hash.rb
 +++ b/test/debugger-ext/test-iseq-hash.rb

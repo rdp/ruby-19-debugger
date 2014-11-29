@@ -1,0 +1,114 @@
+Add RubyVM::OS_ARGV and RubyVM::OS_STARTUP_DIR to get the initial @ARGV
+and current working directory
+
+Some programs like a debugger may want a way to reliably restart the program.
+(Inside a Ruby program, one can change @ARGV and cwd)
+
+diff --git a/include/ruby/ruby.h b/include/ruby/ruby.h
+index 9fcdaff..6a29409 100644
+--- a/include/ruby/ruby.h
++++ b/include/ruby/ruby.h
+@@ -1864,6 +1864,12 @@ void ruby_sig_finalize(void);
+
+ RUBY_SYMBOL_EXPORT_END
+
++struct origarg {
++    int argc;
++    char **argv;
++    char *os_startup_dir;
++};
++
+ #if defined(__cplusplus)
+ #if 0
+ { /* satisfy cc-mode */
+diff --git a/ruby.c b/ruby.c
+index c7be967..05644bd 100644
+--- a/ruby.c
++++ b/ruby.c
+@@ -127,10 +127,7 @@ static NODE *load_file(VALUE, VALUE, int, struct cmdline_options *);
+ static void forbid_setid(const char *, struct cmdline_options *);
+ #define forbid_setid(s) forbid_setid((s), opt)
+
+-static struct {
+-    int argc;
+-    char **argv;
+-} origarg;
++struct origarg origarg;
+
+ static void
+ usage(const char *name, int help)
+@@ -2023,6 +2020,17 @@ ruby_sysinit(int *argc, char ***argv)
+ #endif
+     origarg.argc = *argc;
+     origarg.argv = *argv;
++    origarg.os_startup_dir = malloc(MAXPATHLEN);
++#ifdef HAVE_GETCWD
++    if (!getcwd(origarg.os_startup_dir, MAXPATHLEN))
++        origarg.os_startup_dir[0] = '\0';
++#else
++    if (!getwd(origarg.os_startup_dir))
++        origarg.os_startup_dir[0] = '\0';
++#endif
++    origarg.os_startup_dir = realloc(origarg.os_startup_dir,
++                                     strlen(origarg.os_startup_dir)+1);
++
+ #if defined(USE_DLN_A_OUT)
+     dln_argv0 = origarg.argv[0];
+ #endif
+diff --git a/test/debugger-ext/test-os-startup.rb b/test/debugger-ext/test-os-startup.rb
+new file mode 100644
+index 0000000..89d0a7e
+--- /dev/null
++++ b/test/debugger-ext/test-os-startup.rb
+@@ -0,0 +1,11 @@
++require 'test/unit'
++
++class Test_OS_Startup < Test::Unit::TestCase
++    def test_os_startup
++        assert_equal(true, RubyVM::OS_ARGV.any?{|arg| $0.include?(arg)},
++                     "program name args should contain #{$0}")
++        assert_operator(2, :<=, RubyVM::OS_ARGV.size,
++                        "RubyVM::OS_ARGV should contain at least the Ruby interpeter and the program name")
++        assert RubyVM::OS_STARTUP_DIR
++  end
++end
+diff --git a/vm.c b/vm.c
+index a506b04..8723430 100644
+--- a/vm.c
++++ b/vm.c
+@@ -2010,6 +2010,8 @@ thread_recycle_struct(void)
+ }
+ #endif
+
++extern struct origarg origarg;
++
+ void
+ rb_thread_mark(void *ptr)
+ {
+@@ -2493,6 +2495,21 @@ Init_VM(void)
+     rb_undef_method(CLASS_OF(rb_cRubyVM), "new");
+     rb_define_singleton_method(rb_cRubyVM, "stat", vm_stat, -1);
+
++    /** set RubyVM::OS_ARGV and RubyVM::OS_STARTUP_DIR */
++    rb_define_const(rb_cRubyVM, "OS_STARTUP_DIR",
++		    strlen(origarg.os_startup_dir) > 0 ?
++		    rb_str_new2(origarg.os_startup_dir) : Qnil);
++    {
++	int argc;
++	char **argv;
++	VALUE ary = rb_ary_new();
++	rb_define_const(rb_cRubyVM, "OS_ARGV", ary);
++	for (argc = origarg.argc, argv = origarg.argv;
++	     argc > 0; argc--, argv++) {
++	    rb_ary_push(ary, rb_str_new2(*argv));
++	}
++    }
++
+     /* FrozenCore (hidden) */
+     fcore = rb_class_new(rb_cBasicObject);
+     RBASIC(fcore)->flags = T_ICLASS;
+@@ -3081,4 +3098,3 @@ vm_collect_usage_register(int reg, int isset)
+ 	(*ruby_vm_collect_usage_func_register)(reg, isset);
+ }
+ #endif
+-

@@ -19,7 +19,7 @@ patchfile=${1:-'combined'}
 case $patchfile in
     2.1.5 | head | trunk )
 	for file in \
-	    00-extern-access.patch \
+	    0000-extern-access.patch \
 	    000-config.patch \
 	    000-error.patch \
 	    000-pc-modify.patch \
@@ -30,6 +30,9 @@ case $patchfile in
 	    220-iseq-eval-source-save.patch \
 	    230-iseq-top-name.patch \
 	    240-iseq-SCRIPT_ISEQS__.patch
+	    # 240-iseq-SCRIPT_ISEQS__.patch \
+	    # 245-method-arity.patch \
+	    # 310-os-startup.patch
 	do
 	    patch_file=${dirname}/../2.1.5/$file
 	    echo -- Applying patches in $patch_file ... | tee -a patches_applied.log

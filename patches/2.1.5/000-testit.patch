@@ -18,7 +18,7 @@ index 0000000..ab610a2
 +else
 +    args=$@
 +fi
-+for t in $args ; do
++for t in $args ; do 
 +    echo "===== $t ====="
 +    ../../miniruby -I../../lib -I../.. $t
 +    # echo ../../miniruby -I../../lib -I../.. $t

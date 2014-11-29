@@ -242,6 +242,64 @@ index 450ea64..e746b40 100644
  }
 
  /*
+diff --git a/test/debugger-ext/test-iseq-hash.rb b/test/debugger-ext/test-iseq-hash.rb
+new file mode 100644
+index 0000000..279f5ef
+--- /dev/null
++++ b/test/debugger-ext/test-iseq-hash.rb
+@@ -0,0 +1,52 @@
++# See that setting ISEQS__ and SCRIPT_ISEQS__ saves
++# RubyVM::Instruction_sequenses
++require 'test/unit'
++$SAFE = 0
++SCRIPT_ISEQS__ = {}
++ISEQS__ = {}
++class TestIseqAccess < Test::Unit::TestCase
++    ## FIXME: this doesn't work. Find out why.
++    # def setup
++    #   old_verbosity = $VERBOSE
++    #   $VERBOSE = nil
++    #   Kernel.const_set(:ISEQS__, {})
++    #   Kernel.const_set(:SCRIPT_ISEQS__, {})
++    #   $VERBOSE = old_verbosity
++    # end
++    # def teardown
++    #   old_verbosity = $VERBOSE
++    #   $VERBOSE = nil
++    #   Kernel.const_set(:ISEQS__, nil)
++    #   Kernel.const_set(:SCRIPT_ISEQS__, nil)
++    #   $VERBOSE = old_verbosity
++    # end
++
++    def test_basic
++        sizes=[]
++        [ISEQS__, SCRIPT_ISEQS__].each do |iseq_hash|
++            sizes << iseq_hash.size
++        end
++        # defining five should trigger five instruction sequence additions
++        # to ISEQS__ and SCRIPT_ISEQS__
++        #
++        eval 'def five; 5 end'
++        eval 'def longer_five; return 5 end'
++        # assert_equal sizes[0], sizes[1]
++        [SCRIPT_ISEQS__, ISEQS__].each do |iseq_hash|
++            # assert_equal true, iseq_hash.size > sizes.pop
++            assert_equal Hash, iseq_hash.class
++            a = iseq_hash.first
++            assert_equal Array, a.class
++            assert_equal RubyVM::InstructionSequence, iseq_hash.values[0][0].class
++        end
++        five_iseq = ISEQS__["five"][0]
++        assert_equal RubyVM::InstructionSequence, five_iseq.class
++        assert_equal "(eval: 'def five; 5 end')", five_iseq.path
++        longer_five_iseq = ISEQS__["longer_five"][0]
++        assert_equal "(eval: 'def longer_five;...')", longer_five_iseq.path
++        # Null ISEQS__ and SCRIPT_ISEQS__ but avoid: dynanmic constant warning
++        eval "ISEQS__ = nil; SCRIPT_ISEQS__ = nil"
++    end
++end
++# We want to double-check we didn't mess up any pointers somewhere.
++at_exit { GC.start  }
 diff --git a/vm_core.h b/vm_core.h
 index 75edb5b..851bdfe 100644
 --- a/vm_core.h

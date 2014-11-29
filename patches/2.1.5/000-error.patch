@@ -1,13 +1,10 @@
 Change who should get bug reports. We don't want Ruby folks to be bothered with our mistakes.
 
-diff --git a/rocky/test-000-config.rb b/rocky/test-000-config.rb
-old mode 100644
-new mode 100755
-diff --git a/rocky/test-000-error.sh b/rocky/test-000-error.sh
+diff --git a/test/debugger-ext/test-000-error.sh b/test/debugger-ext/test-000-error.sh
 new file mode 100755
 index 0000000..9b9f6f1
 --- /dev/null
-+++ b/rocky/test-000-error.sh
++++ b/test/debugger-ext/test-000-error.sh
 @@ -0,0 +1,2 @@
 +#!/bin/bash
 +(cd .. && ./miniruby -I./lib -I. -I.ext/common  ./tool/runruby.rb --extout=.ext  -- --disable-gems  ./test/ruby/test_rubyoptions.rb)
@@ -27,4 +24,3 @@ index b6be501..7dfb88c 100644
 -      \z
        )x
    end
- 

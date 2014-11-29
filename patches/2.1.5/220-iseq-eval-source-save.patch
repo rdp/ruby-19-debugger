@@ -78,7 +78,7 @@ index 0000000..6ff16ee
 +++ b/test/debugger-ext/test-iseq-field-access2.rb
 @@ -0,0 +1,22 @@
 +require 'test/unit'
-+class TestISeqSource < Test::Unit::TestCase
++class TestISeqFieldAccess2 < Test::Unit::TestCase
 +  def test_source
 +      iseq = RubyVM::InstructionSequence.new("x=1")
 +      assert_equal  0, iseq.argc
@@ -105,7 +105,7 @@ index 6ff16ee..54cddb4 100644
 +++ b/test/debugger-ext/test-iseq-source.rb
 @@ -1,0 +1,8 @@
 + require 'test/unit'
-+ class TestISeqSource < Test::Unit::TestCase
++ class TestISeqSource2 < Test::Unit::TestCase
 +   def test_source
 +      iseq = RubyVM::InstructionSequence.new("x=1; z=3")
 +      assert_equal false, iseq.eval_source, 'eval_source of non-eval is false'
