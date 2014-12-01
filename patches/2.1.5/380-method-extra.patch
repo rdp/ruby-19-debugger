@@ -116,21 +116,21 @@ index 0000000..000ad2f
 +require 'test/unit'
 +
 +class TestMethod < Test::Unit::TestCase
-+  def test_method
-+    m = self.method :test_method
-+    assert_equal(1, m.alias_count)
-+    assert_equal(:test_method, m.original_id)
-+    self.instance_eval { assert_equal(1, m.alias_count) }
-+    assert_equal(1, m.alias_count)
-+    self.instance_eval { alias :two :test_method }
-+    assert_equal(2, m.alias_count)
-+    assert_equal(3, self.method(:test_method).alias_count)
-+    assert_equal(3, m.alias_count)
-+    assert_equal(4, self.method(:two).alias_count)
-+    assert_equal(:test_method, self.method(:two).original_id)
-+    assert_equal("instruction sequence", method(:test_method).type)
-+    assert_equal("C function", File.method(:basename).type)
-+    # Array.map is an unbound method
-+    assert_equal("C function", Array.instance_method(:map).type)
-+  end
++    def test_method
++        m = self.method :test_method
++        assert_equal(1, m.alias_count)
++        assert_equal(:test_method, m.original_id)
++        self.instance_eval { assert_equal(1, m.alias_count) }
++        assert_equal(1, m.alias_count)
++        self.instance_eval { alias :two :test_method }
++        assert_equal(2, m.alias_count)
++        assert_equal(3, self.method(:test_method).alias_count)
++        assert_equal(3, m.alias_count)
++        assert_equal(4, self.method(:two).alias_count)
++        assert_equal(:test_method, self.method(:two).original_id)
++        assert_equal("instruction sequence", method(:test_method).type)
++        assert_equal("C function", File.method(:basename).type)
++        # Array.map is an unbound method
++        assert_equal("C function", Array.instance_method(:map).type)
++    end
 +end

@@ -24,6 +24,7 @@ case $patchfile in
 	    000-error.patch \
 	    000-pc-modify.patch \
 	    000-testit.patch \
+	    001-disable-cache.patch \
 	    130-brkpt.patch \
 	    210-iseq-field-access.patch \
 	    215-iseq-field-access.patch \
@@ -33,7 +34,9 @@ case $patchfile in
 	    245-method-arity.patch \
 	    310-os-startup.patch \
 	    380-method-extra.patch \
-	    390-proc-iseq.patch
+	    390-proc-iseq.patch \
+	    400-source-container-method-iseq.patch \
+	    500-frame.patch
 	do
 	    patch_file=${dirname}/../2.1.5/$file
 	    echo -- Applying patches in $patch_file ... | tee -a patches_applied.log

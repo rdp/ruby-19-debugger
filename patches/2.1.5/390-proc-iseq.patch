@@ -61,7 +61,7 @@ index 0000000..7737aef
 +require 'test/unit'
 +
 +class TestProc < Test::Unit::TestCase
-+  def test_sha1
-+    assert proc{ 5}.iseq.kind_of?(RubyVM::InstructionSequence)
-+  end
++    def test_proc_iseq
++      assert proc{ 5}.iseq.kind_of?(RubyVM::InstructionSequence)
++    end
 +end
