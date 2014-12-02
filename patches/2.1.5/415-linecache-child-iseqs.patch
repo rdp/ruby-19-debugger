@@ -1,0 +1,145 @@
+rb_child_iseqs (Ruby iseq#child_iseqs) returns and array of child instruction sequences of "iseq".
+
+This allows the Ruby gem linecache to find all of the line numbers
+which one can set a breakpoint at.  It does this by starting with
+top-level instruction sequences and traversing child instructions
+sequences found from that.
+
+Code coverage could use it to ensure all statements (lines) are
+covered.
+
+diff --git a/iseq.c b/iseq.c
+index 97deb46..fd8f7af 100644
+--- a/iseq.c
++++ b/iseq.c
+@@ -582,6 +582,105 @@ rb_iseq_source_container(VALUE iseqval)
+ }
+
+
++static void
++insn_operand_add_child(rb_iseq_t *iseq,
++		       VALUE insn, int op_no, VALUE op,
++		       VALUE child)
++{
++    const char *types = insn_op_types(insn);
++    char type = types[op_no];
++
++    switch (type) {
++      case TS_OFFSET:		/* LONG */
++      case TS_NUM:		/* ULONG */
++      case TS_LINDEX:
++	break;
++
++      case TS_ID:		/* ID (symbol) */
++	op = ID2SYM(op);
++
++      case TS_VALUE:		/* VALUE */
++	op = obj_resurrect(op);
++	if (CLASS_OF(op) == rb_cISeq) {
++	    rb_ary_push(child, op);
++	}
++	break;
++
++      case TS_ISEQ:		/* iseq */
++	{
++	    rb_iseq_t *iseq = (rb_iseq_t *)op;
++	    if (iseq) {
++		if (child) {
++		    rb_ary_push(child, iseq->self);
++		}
++	    }
++	    break;
++	}
++      case TS_GENTRY:
++      case TS_IC: /* inline cache */
++      case TS_CALLINFO: /* call info */
++      case TS_CDHASH:
++      case TS_FUNCPTR:
++	break;
++
++      default:
++	rb_bug("rb_iseq_disasm: unknown operand type: %c", type);
++    }
++}
++
++/**
++ * Add to child array all instruction sequences found in an instruction.
++ */
++static int
++rb_iseq_insn_add_child(VALUE *iseq, size_t pos,
++		       rb_iseq_t *iseqdat, VALUE child)
++{
++    VALUE insn = iseq[pos];
++    int len = insn_len(insn);
++    int j;
++    const char *types = insn_op_types(insn);
++
++    for (j = 0; types[j]; j++) {
++	insn_operand_add_child(iseqdat, insn, j, iseq[pos + j + 1],
++			       child);
++    }
++    return len;
++}
++
++/* Return an ARRAY of iseq's which can be found off of this one. */
++VALUE
++rb_iseq_child_iseqs(VALUE self)
++{
++    VALUE *iseq;
++    rb_iseq_t *iseqdat;
++    VALUE child = rb_ary_new();
++    unsigned long size;
++    int i;
++    size_t n;
++    enum {header_minlen = 72};
++
++    rb_secure(1);
++    iseqdat = iseq_check(self);
++
++    rb_ary_push(child, self);
++    iseq = iseqdat->iseq;
++    size = iseqdat->iseq_size;
++
++    /* First, any catch table iseq's. */
++    for (i = 0; i < iseqdat->catch_table_size; i++) {
++	struct iseq_catch_table_entry *entry = &iseqdat->catch_table[i];
++	if (entry->iseq) {
++	    rb_ary_push(child, entry->iseq);
++	}
++    }
++
++    /* Next each iseq found inside the instructions */
++    for (n = 0; n < size;) {
++	n += rb_iseq_insn_add_child(iseq, n, iseqdat, child);
++    }
++    return child;
++}
++
+ static VALUE
+ rb_iseq_new_with_bopt_and_opt(NODE *node, VALUE name, VALUE path, VALUE absolute_path, VALUE first_lineno,
+ 			      VALUE parent, enum iseq_type type, VALUE bopt,
+@@ -2688,6 +2787,8 @@ Init_ISeq(void)
+     rb_define_method(rb_cISeq, "arity",   rb_iseq_arity, 0);
+     rb_define_method(rb_cISeq, "disasm", rb_iseq_disasm, 0);
+     rb_define_method(rb_cISeq, "disassemble", rb_iseq_disasm, 0);
++    rb_define_method(rb_cISeq, "child_iseqs", rb_iseq_child_iseqs, 0);
++
+     rb_define_method(rb_cISeq, "to_a", iseq_to_a, 0);
+     rb_define_method(rb_cISeq, "eval", iseq_eval, 0);
+
+diff --git a/test/debugger-ext/test-iseq-linetable.rb b/test/debugger-ext/test-iseq-linetable.rb
+index bd5e158..220b921 100644
+--- a/test/debugger-ext/test-iseq-linetable.rb
++++ b/test/debugger-ext/test-iseq-linetable.rb
+@@ -8,5 +8,11 @@ class TestISeqLineTable < Test::Unit::TestCase
+       assert_equal [1], iseq.offset2lines(0)
+       assert iseq.offsetlines.is_a?(Hash)
+       assert iseq.offsetlines.values.all?{|x| x == [1]}
++      assert_equal 1, iseq.child_iseqs.size
++      assert_equal iseq, iseq.child_iseqs[0]
++
++      iseq = RubyVM::InstructionSequence.new("def five; 5; end; x=1")
++      assert_equal 2, iseq.child_iseqs.size
++
+   end
+ end
