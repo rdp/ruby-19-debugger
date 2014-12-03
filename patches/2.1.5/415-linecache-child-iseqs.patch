@@ -12,7 +12,7 @@ diff --git a/iseq.c b/iseq.c
 index 97deb46..fd8f7af 100644
 --- a/iseq.c
 +++ b/iseq.c
-@@ -582,6 +582,105 @@ rb_iseq_source_container(VALUE iseqval)
+@@ -582,6 +581,115 @@ rb_iseq_source_container(VALUE iseqval)
  }
 
 
@@ -50,9 +50,19 @@ index 97deb46..fd8f7af 100644
 +	    }
 +	    break;
 +	}
++      case TS_CALLINFO: /* call info */
++	{
++	    rb_call_info_t *ci = (rb_call_info_t *)op;
++	    if (ci->blockiseq) {
++		if (child) {
++		    rb_ary_push(child, ci->blockiseq->self);
++		}
++	    }
++	}
++	break;
++
 +      case TS_GENTRY:
 +      case TS_IC: /* inline cache */
-+      case TS_CALLINFO: /* call info */
 +      case TS_CDHASH:
 +      case TS_FUNCPTR:
 +	break;

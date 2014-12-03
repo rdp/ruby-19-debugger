@@ -38,6 +38,7 @@ case $patchfile in
 	    400-source-container-method-iseq.patch \
 	    410-linecache-linetable.patch \
 	    415-linecache-child-iseqs.patch \
+	    420-disasm-insns.patch \
 	    500-frame.patch
 	do
 	    patch_file=${dirname}/../2.1.5/$file

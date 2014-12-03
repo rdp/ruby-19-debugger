@@ -1,0 +1,235 @@
+Add more access to VM opcodes and finer control of disassembly.
+
+rb_iseq_disasm_nochildren() disassembles just the given instruction sequence, not any child instruction sequences (such as those of nested procedures).
+
+Also adds access to an instruction's length, name, operand types.
+
+diff --git a/insns_info.inc b/insns_info.inc
+index 7f0a945..544dcfe 100644
+--- a/insns_info.inc
++++ b/insns_info.inc
+@@ -690,38 +690,6 @@ insn_stack_increase(int depth, int insn, VALUE *opes)
+ }
+ #endif
+
+-/* some utilities */
+-
+-static int
+-insn_len(VALUE insn)
+-{
+-  return insn_len_info[(int)insn];
+-}
+-
+-static const char *
+-insn_name(VALUE insn)
+-{
+-  return insn_name_info[(int)insn];
+-}
+-
+-static const char *
+-insn_op_types(VALUE insn)
+-{
+-  return insn_operand_info[(int)insn];
+-}
+-
+-static int
+-insn_op_type(VALUE insn, long pos)
+-{
+-  int len = insn_len(insn) - 1;
+-  if(pos < len){
+-    return insn_operand_info[(int)insn][pos];
+-  }
+-  else{
+-    return 0;
+-  }
+-}
+-
+ #ifdef USE_INSN_RET_NUM
+ static int
+ insn_ret_num(VALUE insn)
+diff --git a/iseq.c b/iseq.c
+index fd8f7af..f15da78 100644
+--- a/iseq.c
++++ b/iseq.c
+@@ -28,6 +28,39 @@ VALUE rb_cISeq;
+
+ #define hidden_obj_p(obj) (!SPECIAL_CONST_P(obj) && !RBASIC(obj)->klass)
+
++/* some utilities */
++
++int
++insn_len(VALUE insn)
++{
++  return insn_len_info[(int)insn];
++}
++
++const char *
++insn_name(VALUE insn)
++{
++  return insn_name_info[(int)insn];
++}
++
++const char *
++insn_op_types(VALUE insn)
++{
++  return insn_operand_info[(int)insn];
++}
++
++int
++insn_op_type(VALUE insn, long pos)
++{
++  int len = insn_len(insn) - 1;
++  if(pos < len){
++    return insn_operand_info[(int)insn][pos];
++  }
++  else{
++    return 0;
++  }
++}
++
++
+ static inline VALUE
+ obj_resurrect(VALUE obj)
+ {
+@@ -1632,9 +1675,8 @@ catch_type(int type)
+  *    0008 leave
+  */
+ VALUE
+-rb_iseq_disasm(VALUE self)
++rb_iseq_disasm_internal(rb_iseq_t *iseqdat, int include_child)
+ {
+-    rb_iseq_t *iseqdat = iseq_check(self);
+     VALUE *iseq;
+     VALUE str = rb_str_new(0, 0);
+     VALUE child = rb_ary_new();
+@@ -1731,15 +1773,46 @@ rb_iseq_disasm(VALUE self)
+ 	n += rb_iseq_disasm_insn(str, iseq, n, iseqdat, child);
+     }
+
+-    for (i = 0; i < RARRAY_LEN(child); i++) {
+-	VALUE isv = rb_ary_entry(child, i);
+-	rb_str_concat(str, rb_iseq_disasm(isv));
+-    }
++    if (include_child)
++	for (i = 0; i < RARRAY_LEN(child); i++) {
++	    VALUE isv = rb_ary_entry(child, i);
++	    rb_str_concat(str, rb_iseq_disasm(isv));
++	}
+
+     return str;
+ }
+
+ /*
++ *  call-seq:
++ *     iseq.disasm   -> string
++ *
++ *  Returns a string disassembly of an instruction sequence.
++ */
++
++VALUE
++rb_iseq_disasm(VALUE self)
++{
++    return rb_iseq_disasm_internal(iseq_check(self), 1);
++}
++
++/*
++ *  call-seq:
++ *     iseq.disasm_nochildren   -> string
++ *
++ *  Returns a string disassembly of an instruction sequence, and
++ *  doesn't include instruction sequences for any associated catch
++ *  table, or instruction sequences found from this instruction
++ *  sequence.
++ */
++
++VALUE
++rb_iseq_disasm_nochildren(VALUE self)
++{
++    return rb_iseq_disasm_internal(iseq_check(self), 0);
++}
++
++
++/*
+  *  Returns the instruction sequence containing the given proc or method.
+  *
+  *  For example, using irb:
+@@ -2797,6 +2870,8 @@ Init_ISeq(void)
+     rb_define_method(rb_cISeq, "arity",   rb_iseq_arity, 0);
+     rb_define_method(rb_cISeq, "disasm", rb_iseq_disasm, 0);
+     rb_define_method(rb_cISeq, "disassemble", rb_iseq_disasm, 0);
++    rb_define_method(rb_cISeq, "disasm_nochildren",
++		     rb_iseq_disasm_nochildren, 0);
+     rb_define_method(rb_cISeq, "child_iseqs", rb_iseq_child_iseqs, 0);
+
+     rb_define_method(rb_cISeq, "to_a", iseq_to_a, 0);
+diff --git a/iseq.h b/iseq.h
+index 1e69617..9772140 100644
+--- a/iseq.h
++++ b/iseq.h
+@@ -136,6 +136,12 @@ VALUE rb_iseq_defined_string(enum defined_type type);
+
+ #define DEFAULT_SPECIAL_VAR_COUNT 2
+
++/* some utilities */
++extern int insn_len(VALUE insn);
++extern const char *insn_name(VALUE insn);
++extern const char *insn_op_types(VALUE insn);
++extern int insn_op_type(VALUE insn, long pos);
++
+ RUBY_SYMBOL_EXPORT_END
+
+ #endif /* RUBY_COMPILE_H */
+diff --git a/template/insns_info.inc.tmpl b/template/insns_info.inc.tmpl
+index 99e4b7b..985736a 100644
+--- a/template/insns_info.inc.tmpl
++++ b/template/insns_info.inc.tmpl
+@@ -42,38 +42,6 @@ insn_stack_increase(int depth, int insn, VALUE *opes)
+ }
+ #endif
+
+-/* some utilities */
+-
+-static int
+-insn_len(VALUE insn)
+-{
+-  return insn_len_info[(int)insn];
+-}
+-
+-static const char *
+-insn_name(VALUE insn)
+-{
+-  return insn_name_info[(int)insn];
+-}
+-
+-static const char *
+-insn_op_types(VALUE insn)
+-{
+-  return insn_operand_info[(int)insn];
+-}
+-
+-static int
+-insn_op_type(VALUE insn, long pos)
+-{
+-  int len = insn_len(insn) - 1;
+-  if(pos < len){
+-    return insn_operand_info[(int)insn][pos];
+-  }
+-  else{
+-    return 0;
+-  }
+-}
+-
+ #ifdef USE_INSN_RET_NUM
+ static int
+ insn_ret_num(VALUE insn)
+diff --git a/vm_core.h b/vm_core.h
+index 51445cd..dd89847 100644
+--- a/vm_core.h
++++ b/vm_core.h
+@@ -709,6 +709,7 @@ VALUE rb_iseq_compile_on_base(VALUE src, VALUE file, VALUE line, rb_block_t *bas
+ VALUE rb_iseq_compile_with_option(VALUE src, VALUE file, VALUE absolute_path, VALUE line, rb_block_t *base_block, VALUE opt);
+
+ VALUE rb_iseq_disasm(VALUE self);
++VALUE rb_iseq_disasm_nochildren(VALUE self);
+ int rb_iseq_disasm_insn(VALUE str, VALUE *iseqval, size_t pos, rb_iseq_t *iseq, VALUE child);
+ const char *ruby_node_name(int node);
