@@ -1,8 +1,12 @@
 Add more access to VM opcodes and finer control of disassembly.
 
-rb_iseq_disasm_nochildren() disassembles just the given instruction sequence, not any child instruction sequences (such as those of nested procedures).
+rb_iseq_disasm_nochildren() disassembles just the given instruction
+sequence, not any child instruction sequences (such as those of nested
+procedures).
 
-Also adds access to an instruction's length, name, operand types.
+Also adds access to an instruction's length, name, operand
+types. FIXES a bug in 415 linecache-child-iseqs. We should combine
+parts of this with that.
 
 diff --git a/insns_info.inc b/insns_info.inc
 index 7f0a945..544dcfe 100644
@@ -48,7 +52,7 @@ index 7f0a945..544dcfe 100644
  static int
  insn_ret_num(VALUE insn)
 diff --git a/iseq.c b/iseq.c
-index fd8f7af..f15da78 100644
+index 3960572..bbece58 100644
 --- a/iseq.c
 +++ b/iseq.c
 @@ -28,6 +28,39 @@ VALUE rb_cISeq;
@@ -91,6 +95,116 @@ index fd8f7af..f15da78 100644
  static inline VALUE
  obj_resurrect(VALUE obj)
  {
+@@ -585,7 +618,7 @@ rb_iseq_source_container(VALUE iseqval)
+ static void
+ insn_operand_add_child(rb_iseq_t *iseq,
+ 		       VALUE insn, int op_no, VALUE op,
+-		       VALUE child)
++		       VALUE children)
+ {
+     const char *types = insn_op_types(insn);
+     char type = types[op_no];
+@@ -602,7 +635,7 @@ insn_operand_add_child(rb_iseq_t *iseq,
+       case TS_VALUE:		/* VALUE */
+ 	op = obj_resurrect(op);
+ 	if (CLASS_OF(op) == rb_cISeq) {
+-	    rb_ary_push(child, op);
++	    rb_ary_push(children, op);
+ 	}
+ 	break;
+
+@@ -610,8 +643,8 @@ insn_operand_add_child(rb_iseq_t *iseq,
+ 	{
+ 	    rb_iseq_t *iseq = (rb_iseq_t *)op;
+ 	    if (iseq) {
+-		if (child) {
+-		    rb_ary_push(child, iseq->self);
++		if (children) {
++		    rb_ary_push(children, iseq->self);
+ 		}
+ 	    }
+ 	    break;
+@@ -620,8 +653,8 @@ insn_operand_add_child(rb_iseq_t *iseq,
+ 	{
+ 	    rb_call_info_t *ci = (rb_call_info_t *)op;
+ 	    if (ci->blockiseq) {
+-		if (child) {
+-		    rb_ary_push(child, ci->blockiseq->self);
++		if (children) {
++		    rb_ary_push(children, ci->blockiseq->self);
+ 		}
+ 	    }
+ 	}
+@@ -639,11 +672,11 @@ insn_operand_add_child(rb_iseq_t *iseq,
+ }
+
+ /**
+- * Add to child array all instruction sequences found in an instruction.
++ * Add to children array all instruction sequences found in an instruction.
+  */
+ static int
+ rb_iseq_insn_add_child(VALUE *iseq, size_t pos,
+-		       rb_iseq_t *iseqdat, VALUE child)
++		       rb_iseq_t *iseqdat, VALUE children)
+ {
+     VALUE insn = iseq[pos];
+     int len = insn_len(insn);
+@@ -652,7 +685,7 @@ rb_iseq_insn_add_child(VALUE *iseq, size_t pos,
+
+     for (j = 0; types[j]; j++) {
+ 	insn_operand_add_child(iseqdat, insn, j, iseq[pos + j + 1],
+-			       child);
++			       children);
+     }
+     return len;
+ }
+@@ -663,7 +696,7 @@ rb_iseq_child_iseqs(VALUE self)
+ {
+     VALUE *iseq;
+     rb_iseq_t *iseqdat;
+-    VALUE child = rb_ary_new();
++    VALUE children = rb_ary_new();
+     unsigned long size;
+     int i;
+     size_t n;
+@@ -672,7 +705,7 @@ rb_iseq_child_iseqs(VALUE self)
+     rb_secure(1);
+     iseqdat = iseq_check(self);
+
+-    rb_ary_push(child, self);
++    rb_ary_push(children, self);
+     iseq = iseqdat->iseq;
+     size = iseqdat->iseq_size;
+
+@@ -680,15 +713,25 @@ rb_iseq_child_iseqs(VALUE self)
+     for (i = 0; i < iseqdat->catch_table_size; i++) {
+ 	struct iseq_catch_table_entry *entry = &iseqdat->catch_table[i];
+ 	if (entry->iseq) {
+-	    rb_ary_push(child, entry->iseq);
++	    rb_ary_push(children, entry->iseq);
+ 	}
+     }
+
+     /* Next each iseq found inside the instructions */
+     for (n = 0; n < size;) {
+-	n += rb_iseq_insn_add_child(iseq, n, iseqdat, child);
++	n += rb_iseq_insn_add_child(iseq, n, iseqdat, children);
+     }
+-    return child;
++
++    for (i = 1; i < RARRAY_LEN(children); i++) {
++	int j;
++	VALUE isv = rb_ary_entry(children, i);
++	VALUE grandchildren = rb_iseq_child_iseqs(isv);
++	for (j = 1; j < RARRAY_LEN(grandchildren); j++) {
++	    rb_ary_push(children, rb_ary_entry(grandchildren, j));
++	}
++    }
++
++    return children;
+ }
+
+ static VALUE
 @@ -1632,9 +1675,8 @@ catch_type(int type)
   *    0008 leave
   */
