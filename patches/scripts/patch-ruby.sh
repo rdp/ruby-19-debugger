@@ -80,7 +80,13 @@ case $patchfile in
 	    patch -p1 < $patch_file
 	done
 	;;
-    combined )
+    combined-2.1.5 | combined )
+	file=ruby-2.1.5-combined.patch
+	patch_file=${dirname}/../$file
+	echo -- Applying patches in $patch_file
+	$patch -p1 < $patch_file
+	;;
+    combined-1.9.3 )
 	file=ruby-1.9.3-combined.patch
 	patch_file=${dirname}/../$file
 	echo -- Applying patches in $patch_file

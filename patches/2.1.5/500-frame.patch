@@ -15,9 +15,9 @@ new file mode 100644
 index 0000000..cde1012
 --- /dev/null
 +++ b/frame.c
-@@ -0,0 +1,1011 @@
+@@ -0,0 +1,1017 @@
 +/*
-+ * Copyright (C) 2012, 2014 Rocky Bernstein
++ * Copyright (C) 2012, 2014, 2015 Rocky Bernstein
 + *
 + *  Access to Ruby's rb_control_frame_t and methods for working with that.
 + *  Things like getting a binding for a control frame. In Ruby 1.9.2 this code
@@ -807,11 +807,13 @@ index 0000000..cde1012
 + * Returns a tuple representing kind of container, e.g. file
 + * eval'd string object, and the name of the container. If file,
 + * it would be a file name. If an eval'd string it might be the string.
++ * An optional 3rd argument files a full absolute path if it is a file.
 + */
 +static VALUE
 +frame_source_container(VALUE klass)
 +{
 +    VALUE path = Qnil;
++    VALUE abs_path = Qnil;
 +    const char *contain_type;
 +    rb_control_frame_t *cfp;
 +    int is_eval = 0;
@@ -822,9 +824,10 @@ index 0000000..cde1012
 +	  cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(cfp) ) ;
 +
 +
-+    if (cfp->iseq)
++    if (cfp->iseq) {
 +	path = cfp->iseq->location.path;
-+    else {
++	abs_path = cfp->iseq->location.absolute_path;
++    } else {
 +	if (tf->th->vm->progname)
 +	    path = tf->th->vm->progname;
 +	else
@@ -847,7 +850,10 @@ index 0000000..cde1012
 +	    path = rb_frame_sp(prev, INT2FIX(3));
 +    }
 +
-+    return rb_ary_new3(2, rb_str_new2(contain_type), path);
++    if (abs_path != Qnil)
++	return rb_ary_new3(3, rb_str_new2(contain_type), path, abs_path);
++    else
++	return rb_ary_new3(2, rb_str_new2(contain_type), path);
 +}
 +
 +/*
