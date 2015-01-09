@@ -3,7 +3,6 @@ Access to more of the iseq fields: argc, arg_rest, arg_block, offsetlines, offse
 diff --git a/iseq.c b/iseq.c
 index dc14e28..9365ca9 100644
 --- a/iseq.c
-+++ b/iseq.c
 @@ -2275,12 +2275,46 @@ rb_iseq_line_trace_specify(VALUE iseqval, VALUE pos, VALUE set)
 
  extern void Init_Brkpt(void); /* In brkpt.c */
@@ -20,7 +19,6 @@ index dc14e28..9365ca9 100644
 +
 +ISEQ_FIELD_METHOD(orig) ;
 +ISEQ_FIELD_METHOD(self) ;
-+ISEQ_FIELD_METHOD(type) ;
 +
 +#define ISEQ_INT_FIELD_METHOD(FIELD)		\
 +extern VALUE					\
@@ -40,6 +38,7 @@ index dc14e28..9365ca9 100644
 +ISEQ_INT_FIELD_METHOD(iseq_size) ;
 +ISEQ_INT_FIELD_METHOD(local_size) ;
 +ISEQ_INT_FIELD_METHOD(local_table_size) ;
++ISEQ_INT_FIELD_METHOD(type) ;
 +
  void
  Init_ISeq(void)
@@ -94,7 +93,7 @@ new file mode 100644
 index 0000000..8dc083d
 --- /dev/null
 +++ b/test/debugger-ext/test-iseq-field-access.rb
-@@ -0,0 +1,39 @@
+@@ -0,0 +1,64 @@
 +require 'test/unit'
 +
 +class TestISeqBrkpt < Test::Unit::TestCase
@@ -110,6 +109,31 @@ index 0000000..8dc083d
 +  def teardown
 +    set_trace_func(nil)
 +    RubyVM::InstructionSequence.compile_option = @original_compile_option
++  end
++
++  TYPE2STR = %w(top method block class rescue ensure eval main guard)
++
++  def show_type # :nodoc:
++      results = []
++      tf = RubyVM::Frame.get
++      while tf do
++          is = tf.iseq
++          if is
++              ist = tf.iseq.type
++              isn = TYPE2STR[ist]
++              results << isn
++          end
++          tf = tf.prev
++      end
++      return results
++  end
++
++  def test_type
++      # Create an artificial block, for testing.
++      1.times do
++          got = show_type[0..2] + [show_type[-1]]
++          assert_equal(%w(method block method top), got)
++      end
 +  end
 +
 +  def test_iseq_brkpt

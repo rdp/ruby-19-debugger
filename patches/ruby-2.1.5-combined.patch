@@ -1408,7 +1408,7 @@ index 7f0a945..544dcfe 100644
  static int
  insn_ret_num(VALUE insn)
 diff --git a/iseq.c b/iseq.c
-index b700c6e..bbece58 100644
+index b700c6e..d378605 100644
 --- a/iseq.c
 +++ b/iseq.c
 @@ -28,6 +28,39 @@ VALUE rb_cISeq;
@@ -1906,7 +1906,48 @@ index b700c6e..bbece58 100644
  }
  
  /*
-@@ -1375,9 +1675,8 @@ catch_type(int type)
+@@ -1141,6 +1441,40 @@ rb_iseq_line_no(const rb_iseq_t *iseq, size_t pos)
+     }
+ }
+ 
++size_t
++rb_iseq_start_insn(const rb_iseq_t *iseq, size_t pos)
++{
++    struct iseq_line_info_entry *entry = get_line_info(iseq, pos);
++    if (entry) {
++	return entry->position;
++    }
++    else {
++	return 0;
++    }
++}
++
++VALUE
++iseq_start_insn(VALUE iseqval, VALUE posval)
++{
++    rb_iseq_t *iseq;
++    struct iseq_line_info_entry *entry;
++
++    GetISeqPtr(iseqval, iseq);
++
++    if (FIXNUM_P(posval)) {
++	size_t pos = FIX2INT(posval);
++	if (entry = get_line_info(iseq, pos)) {
++	    return INT2FIX(entry->position);
++	}
++	else {
++	    return INT2FIX(-1);
++	}
++    } else {
++      rb_raise(rb_eTypeError, "type mismatch: %s given, Fixnum expected",
++	       rb_class2name(CLASS_OF(posval)));
++    }
++}
++
+ static VALUE
+ id_to_name(ID id, VALUE default_value)
+ {
+@@ -1375,9 +1709,8 @@ catch_type(int type)
   *    0008 leave
   */
  VALUE
@@ -1917,7 +1958,7 @@ index b700c6e..bbece58 100644
      VALUE *iseq;
      VALUE str = rb_str_new(0, 0);
      VALUE child = rb_ary_new();
-@@ -1474,15 +1773,46 @@ rb_iseq_disasm(VALUE self)
+@@ -1474,15 +1807,46 @@ rb_iseq_disasm(VALUE self)
  	n += rb_iseq_disasm_insn(str, iseq, n, iseqdat, child);
      }
  
@@ -1968,7 +2009,7 @@ index b700c6e..bbece58 100644
   *  Returns the instruction sequence containing the given proc or method.
   *
   *  For example, using irb:
-@@ -2273,15 +2603,277 @@ rb_iseq_line_trace_specify(VALUE iseqval, VALUE pos, VALUE set)
+@@ -2273,15 +2637,277 @@ rb_iseq_line_trace_specify(VALUE iseqval, VALUE pos, VALUE set)
   *  you see.
   */
  
@@ -1986,7 +2027,6 @@ index b700c6e..bbece58 100644
 +
 +ISEQ_FIELD_METHOD(orig) ;
 +ISEQ_FIELD_METHOD(self) ;
-+ISEQ_FIELD_METHOD(type) ;
 +
 +#define ISEQ_INT_FIELD_METHOD(FIELD)		\
 +extern VALUE					\
@@ -2006,6 +2046,7 @@ index b700c6e..bbece58 100644
 +ISEQ_INT_FIELD_METHOD(iseq_size) ;
 +ISEQ_INT_FIELD_METHOD(local_size) ;
 +ISEQ_INT_FIELD_METHOD(local_table_size) ;
++ISEQ_INT_FIELD_METHOD(type) ;
 +
 +#define COMPILE_OPTS_BOOL_SET_HASH(FIELD) \
 +    rb_hash_aset(hash_opts, rb_str_new2(#FIELD), \
@@ -2246,7 +2287,7 @@ index b700c6e..bbece58 100644
      rb_define_method(rb_cISeq, "to_a", iseq_to_a, 0);
      rb_define_method(rb_cISeq, "eval", iseq_eval, 0);
  
-@@ -2292,7 +2884,7 @@ Init_ISeq(void)
+@@ -2292,7 +2918,7 @@ Init_ISeq(void)
      rb_define_method(rb_cISeq, "base_label", rb_iseq_base_label, 0);
      rb_define_method(rb_cISeq, "first_lineno", rb_iseq_first_lineno, 0);
  
@@ -2255,7 +2296,7 @@ index b700c6e..bbece58 100644
      /* Now, it is experimental. No discussions, no tests. */
      /* They can be used from C level. Please give us feedback. */
      rb_define_method(rb_cISeq, "line_trace_all", rb_iseq_line_trace_all, 0);
-@@ -2319,4 +2911,33 @@ Init_ISeq(void)
+@@ -2319,4 +2945,34 @@ Init_ISeq(void)
      rb_define_singleton_method(rb_cISeq, "disasm", iseq_s_disasm, 1);
      rb_define_singleton_method(rb_cISeq, "disassemble", iseq_s_disasm, 1);
      rb_define_singleton_method(rb_cISeq, "of", iseq_s_of, 1);
@@ -2285,24 +2326,27 @@ index b700c6e..bbece58 100644
 +    rb_define_method(rb_cISeq, "self",             rb_iseq_self, 0) ;
 +    rb_define_method(rb_cISeq, "type",             rb_iseq_type, 0) ;
 +    rb_define_method(rb_cISeq, "iseq_size",        rb_iseq_iseq_size, 0) ;
++    rb_define_method(rb_cISeq, "start_insn",       iseq_start_insn, 1) ;
 +
 +    Init_Brkpt();
 +
  }
 diff --git a/iseq.h b/iseq.h
-index c34aafd..9772140 100644
+index c34aafd..9027589 100644
 --- a/iseq.h
 +++ b/iseq.h
-@@ -25,6 +25,8 @@ void rb_iseq_add_mark_object(rb_iseq_t *iseq, VALUE obj);
+@@ -25,7 +25,10 @@ void rb_iseq_add_mark_object(rb_iseq_t *iseq, VALUE obj);
  VALUE rb_iseq_load(VALUE data, VALUE parent, VALUE opt);
  VALUE rb_iseq_parameters(const rb_iseq_t *iseq, int is_proc);
  struct st_table *ruby_insn_make_insn_table(void);
 +VALUE iseq_alloc_shared(VALUE klass);
 +const char *source_container_type(VALUE fileval);
  unsigned int rb_iseq_line_no(const rb_iseq_t *iseq, size_t pos);
++size_t rb_iseq_start_insn(const rb_iseq_t *iseq, size_t pos);
  
  int rb_iseq_line_trace_each(VALUE iseqval, int (*func)(int line, rb_event_flag_t *events_ptr, void *d), void *data);
-@@ -34,6 +36,9 @@ VALUE rb_iseq_line_trace_specify(VALUE iseqval, VALUE pos, VALUE set);
+ VALUE rb_iseq_line_trace_all(VALUE iseqval);
+@@ -34,6 +37,9 @@ VALUE rb_iseq_line_trace_specify(VALUE iseqval, VALUE pos, VALUE set);
  /* proc.c */
  rb_iseq_t *rb_method_get_iseq(VALUE body);
  rb_iseq_t *rb_proc_get_iseq(VALUE proc, int *is_proc);
@@ -2312,7 +2356,7 @@ index c34aafd..9772140 100644
  
  struct rb_compile_option_struct {
      int inline_const_cache;
-@@ -131,6 +136,12 @@ VALUE rb_iseq_defined_string(enum defined_type type);
+@@ -131,6 +137,12 @@ VALUE rb_iseq_defined_string(enum defined_type type);
  
  #define DEFAULT_SPECIAL_VAR_COUNT 2
  
@@ -2697,9 +2741,32 @@ index 0000000..99a6e7b
 @@ -0,0 +1,2 @@
 +#!/bin/bash
 +(cd ../.. && ./miniruby -I./lib -I. -I.ext/common  ./tool/runruby.rb --extout=.ext  -- --disable-gems  ./test/ruby/test_rubyoptions.rb)
+diff --git a/test/debugger-ext/test-disasm.rb b/test/debugger-ext/test-disasm.rb
+new file mode 100644
+index 0000000..05cb775
+--- /dev/null
++++ b/test/debugger-ext/test-disasm.rb
+@@ -0,0 +1,17 @@
++# Some simple tests of RubyVM::InstructionSequence#disasm, and
++# #disasm_nochildren
++require 'test/unit'
++
++class TestDisasmClass < Test::Unit::TestCase
++
++  def test_basic
++    assert_equal(RubyVM::InstructionSequence.compile('1+2').disassemble,
++                 RubyVM::InstructionSequence.compile('1+2').disasm)
++
++    p='def five; 5 end; five'
++    s1=RubyVM::InstructionSequence.compile(p).disasm
++    assert_equal String, s1.class, 'disasm output should be a string'
++    s2=RubyVM::InstructionSequence.compile(p).disasm_nochildren
++    assert_equal true, s1.size > s2.size
++  end
++end
 diff --git a/test/debugger-ext/test-frame.rb b/test/debugger-ext/test-frame.rb
 new file mode 100644
-index 0000000..d02597d
+index 0000000..732a120
 --- /dev/null
 +++ b/test/debugger-ext/test-frame.rb
 @@ -0,0 +1,142 @@
@@ -2717,7 +2784,7 @@ index 0000000..d02597d
 +            caller_diff = caller_locations(0).size - count
 +            cl = caller_locations(i+caller_diff)[0]
 +            assert METHOD_TYPES.member?(tf.type)
-+            assert_equal(['file', cl.path], tf.source_container,
++            assert_equal(['file', cl.path], tf.source_container[0...-1],
 +                         "location matching caller_locations at depth #{i}")
 +            assert_equal cl.lineno, tf.source_location[0]
 +
@@ -2847,10 +2914,10 @@ index 0000000..d02597d
 +at_exit { GC.start  }
 diff --git a/test/debugger-ext/test-iseq-field-access.rb b/test/debugger-ext/test-iseq-field-access.rb
 new file mode 100644
-index 0000000..dc85538
+index 0000000..b196777
 --- /dev/null
 +++ b/test/debugger-ext/test-iseq-field-access.rb
-@@ -0,0 +1,39 @@
+@@ -0,0 +1,64 @@
 +require 'test/unit'
 +
 +class TestISeqBrkpt < Test::Unit::TestCase
@@ -2866,6 +2933,31 @@ index 0000000..dc85538
 +  def teardown
 +    set_trace_func(nil)
 +    RubyVM::InstructionSequence.compile_option = @original_compile_option
++  end
++
++  TYPE2STR = %w(top method block class rescue ensure eval main guard)
++
++  def show_type # :nodoc:
++      results = []
++      tf = RubyVM::Frame.get
++      while tf do
++          is = tf.iseq
++          if is
++              ist = tf.iseq.type
++              isn = TYPE2STR[ist]
++              results << isn
++          end
++          tf = tf.prev
++      end
++      return results
++  end
++
++  def test_type
++      # Create an artificial block, for testing.
++      1.times do
++          got = show_type[0..2] + [show_type[-1]]
++          assert_equal(%w(method block method top), got)
++      end
 +  end
 +
 +  def test_iseq_brkpt
@@ -2892,12 +2984,13 @@ index 0000000..dc85538
 +at_exit { GC.start  }
 diff --git a/test/debugger-ext/test-iseq-field-access2.rb b/test/debugger-ext/test-iseq-field-access2.rb
 new file mode 100644
-index 0000000..3fbaec0
+index 0000000..e58bef8
 --- /dev/null
 +++ b/test/debugger-ext/test-iseq-field-access2.rb
-@@ -0,0 +1,22 @@
+@@ -0,0 +1,23 @@
 +require 'test/unit'
 +class TestISeqFieldAccess2 < Test::Unit::TestCase
++
 +  def test_source
 +      iseq = RubyVM::InstructionSequence.new("x=1")
 +      assert_equal  0, iseq.argc
@@ -3058,9 +3151,34 @@ index 0000000..d850645
 +  end
 +
 +end
+diff --git a/test/debugger-ext/test-iseq-start-insn.rb b/test/debugger-ext/test-iseq-start-insn.rb
+new file mode 100644
+index 0000000..fef71a2
+--- /dev/null
++++ b/test/debugger-ext/test-iseq-start-insn.rb
+@@ -0,0 +1,19 @@
++require 'test/unit'
++class TestISeqFieldAccess2 < Test::Unit::TestCase
++  def runit(line_no)
++      tf = RubyVM::Frame.get(1)
++      pc = tf.pc_offset
++      iseq = tf.iseq
++      start_insn = iseq.start_insn(pc)
++      # puts ; puts iseq.disasm
++      # p start_insn, pc
++      # p iseq.offsetlines
++      assert_equal(iseq.offset2lines(start_insn), [line_no])
++      assert_not_equal(start_insn, pc)
++      return 5
++  end
++  def test_iseq_start_insn
++      x = 10
++      z = runit(__LINE__)
++  end
++end
 diff --git a/test/debugger-ext/test-method.rb b/test/debugger-ext/test-method.rb
 new file mode 100644
-index 0000000..b04e716
+index 0000000..0d9d968
 --- /dev/null
 +++ b/test/debugger-ext/test-method.rb
 @@ -0,0 +1,24 @@
@@ -3086,7 +3204,7 @@ index 0000000..b04e716
 +        assert_equal("C function", Array.instance_method(:map).type)
 +        # puts m.iseq
 +        assert m.iseq.kind_of?(RubyVM::InstructionSequence)
-+    end
++  end
 +end
 diff --git a/test/debugger-ext/test-os-startup.rb b/test/debugger-ext/test-os-startup.rb
 new file mode 100644
@@ -3107,7 +3225,7 @@ index 0000000..89d0a7e
 +end
 diff --git a/test/debugger-ext/test-proc.rb b/test/debugger-ext/test-proc.rb
 new file mode 100644
-index 0000000..54e22c4
+index 0000000..defc31e
 --- /dev/null
 +++ b/test/debugger-ext/test-proc.rb
 @@ -0,0 +1,7 @@
@@ -3115,7 +3233,7 @@ index 0000000..54e22c4
 +
 +class TestProc < Test::Unit::TestCase
 +    def test_proc_iseq
-+      assert proc{ 5}.iseq.kind_of?(RubyVM::InstructionSequence)
++        assert proc{ 5}.iseq.kind_of?(RubyVM::InstructionSequence)
 +    end
 +end
 diff --git a/test/debugger-ext/test-source-container.rb b/test/debugger-ext/test-source-container.rb
@@ -3147,6 +3265,55 @@ index 0000000..1c8c827
 +# We want to double-check we didn't mess up any pointers somewhere along
 +# the line.
 +at_exit { GC.start  }
+diff --git a/test/debugger-ext/test_binding.rb b/test/debugger-ext/test_binding.rb
+new file mode 100644
+index 0000000..61a4dee
+--- /dev/null
++++ b/test/debugger-ext/test_binding.rb
+@@ -0,0 +1,43 @@
++require 'test/unit'
++
++def outside(a)
++    return eval('a', RubyVM::Frame.new(Thread::current).binding)
++end
++
++$a = 10
++
++class TestBinding < Test::Unit::TestCase
++  def test_basic
++    a = 1
++    c = 0
++    assert_equal(5, outside(5))
++    tf = RubyVM::Frame.new(Thread::current)
++    b  = tf.binding
++    assert_equal(1, eval('a', b))
++    assert_equal(10, eval('$a', b))
++    assert_equal(self, tf.self)
++    1.times do |i;a| 
++      tf2 = Thread::current.frame()
++      b2  = tf2.binding
++      a = 2
++      assert_equal(2, eval('a', b2))
++      assert_equal(0, eval('c', b2))
++
++      # Times is C inline so prev we can't get a binding for it
++      # But we can for use the instruction sequence before that.
++      assert_equal(1, eval('a', tf2.prev(2).binding))
++    end
++    def inner(a)
++      tf3 = Thread::current.frame()
++      b3  = tf3.binding
++      if a == 4
++        assert_equal(4, eval('a', b3))
++        inner(a-1)
++      else
++        assert_equal(3, eval('a', b3))
++        assert_equal(4, eval('a', tf3.prev.binding))
++      end
++    end
++    inner(4)
++  end
++end
 diff --git a/test/debugger-ext/test_brkpt.rb b/test/debugger-ext/test_brkpt.rb
 new file mode 100644
 index 0000000..0347563
@@ -3213,6 +3380,99 @@ index 0000000..0347563
 +
 +# We want to double-check we didn't mess up any pointers somewhere.
 +at_exit { GC.start  }
+diff --git a/test/debugger-ext/test_invalid.rb b/test/debugger-ext/test_invalid.rb
+new file mode 100644
+index 0000000..dd7bfd7
+--- /dev/null
++++ b/test/debugger-ext/test_invalid.rb
+@@ -0,0 +1,39 @@
++require 'test/unit'
++
++class TestInvalid < Test::Unit::TestCase
++  def test_basic
++    @tf = RubyVM::Frame::current
++    assert_equal(false, @tf.invalid?, 
++                 'Frame should be valid right after RubyVM::Frame::current')
++    def notgood(test_tf=nil)
++      # FIXME
++      # if test_tf
++      #   assert_equal(test_tf != @tf, test_tf.invalid?)
++      # end
++      return RubyVM::Frame::current
++    end
++
++    def inner_fn(tf)
++      tf.invalid?
++    end
++      
++    invalid_tf = notgood
++    # FIXME:
++    # assert_equal(true, invalid_tf.invalid?,
++    #             'current thread frame should not be returned from a fn')
++    # begin
++    #   b = invalid_tf.binding
++    #   assert false, 'Should have raised an ThreadFrameError'
++    # rescue ThreadFrameError
++    #   assert true
++    # end
++    # Add a new local variable
++    x = 5
++    assert_equal(false, @tf.invalid?, 
++                 'Frame should still be valid after adding more locals')
++    assert_equal(false, inner_fn(@tf),
++                 'outer thread frame should ok inside a called fn')
++    notgood(invalid_tf)
++    notgood(@tf)
++  end
++end
+diff --git a/test/debugger-ext/test_sp_size.rb b/test/debugger-ext/test_sp_size.rb
+new file mode 100644
+index 0000000..4ebc33f
+--- /dev/null
++++ b/test/debugger-ext/test_sp_size.rb
+@@ -0,0 +1,42 @@
++require 'test/unit'
++
++# Test source_location and source_container.
++class TestSpSize < Test::Unit::TestCase
++
++  def sizes
++    tf = RubyVM::Frame::current
++    ary = []
++    0.upto(2) do |i|
++      ary << tf.sp_size
++      tf = tf.prev
++    end
++    # Swap first two items. The item that generally 
++    # will vary is the a[0].
++    ary[0], ary[1] = ary[1], ary[0]
++    # p ary
++    return ary
++  end
++
++  def f0; return sizes end
++  def f1; a=1; return sizes end
++  def f1a(a) return sizes end
++  def f2(a,b) return sizes end
++
++  def test_sp_size
++    f0_s   = f0
++    f1_s   = f1
++    f1a_s  = f1a(1)
++    f2_s   = f2(1,2)
++    assert_equal(f0_s[0]+1,   f1_s[0])
++    assert_equal(f0_s[1..-1], f1_s[1..-1])
++    assert_equal(f1_s, f1a_s)
++    assert_equal(f1_s[0]+1,   f2_s[0])
++    assert_equal(f1_s[1..-1], f2_s[1..-1])
++
++    assert_raises ArgumentError do 
++      tf = RubyVM::Frame.current
++      tf.sp_set(tf.sp_size, "Should not be able to set this.")
++    end
++  end
++
++end
 diff --git a/test/debugger-ext/testit.sh b/test/debugger-ext/testit.sh
 new file mode 100644
 index 0000000..d481fc3
