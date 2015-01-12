@@ -139,3 +139,29 @@ index e55841d..d9a9415 100644
  	if (bind && iseq->local_table_size > 0) {
  	    bind->env = rb_vm_make_env_object(th, th->cfp);
  	}
+diff --git a/test/ruby/test_beginendblock.rb b/test/ruby/test_beginendblock.rb
+index d9c1f56..ba6e87a 100644
+--- a/test/ruby/test_beginendblock.rb
++++ b/test/ruby/test_beginendblock.rb
+@@ -68,7 +68,7 @@ EOF
+         system(ruby, launcherpath, erroutpath)
+         expected = <<EOW
+ endblockwarn_rb:2: warning: END in method; use at_exit
+-(eval):2: warning: END in method; use at_exit
++(eval: '  def end2\n    E...'):2: warning: END in method; use at_exit
+ EOW
+         assert_equal(expected, File.read(erroutpath))
+       }
+diff --git a/test/-ext-/debug/test_profile_frames.rb b/test/-ext-/debug/test_profile_frames.rb
+index 1879c22..a744dfb 100644
+--- a/test/-ext-/debug/test_profile_frames.rb
++++ b/test/-ext-/debug/test_profile_frames.rb
+@@ -75,7 +75,7 @@ class TestProfileFrames < Test::Unit::TestCase
+       "SampleClassForTestProfileFrames#foo",
+       "TestProfileFrames#test_profile_frames",
+     ]
+-    paths = [ file=__FILE__, "(eval)", file, file, file, file ]
++    paths = [ file=__FILE__, "(eval: 'def zab(block) b...')", file, file, file, file ]
+     absolute_paths = [ file, nil, file, file, file, file ]
+
+     # pp frames

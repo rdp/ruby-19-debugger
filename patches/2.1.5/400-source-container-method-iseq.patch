@@ -37,7 +37,7 @@ index 3ab1457..8b5bcfe 100644
 +
 +/**
 + * Return an Array tuple of source container. This is either ["file"
-+ * *filename*] if the instruction sequence came from a file, or
++ * *filename* *absolute-file*] if the instruction sequence came from a file, or
 + * ["string", *source-string*] if it came from "eval".
 + * TODO: could have come from other sources too.
 + */

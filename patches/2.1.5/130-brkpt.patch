@@ -129,7 +129,7 @@ index 0000000..29dd23d
 +/**********************************************************************
 +  brkpt.c - VM-assisted Breakpoint support
 +
-+  Copyright (C) 2012 Rocky Bernstein
++  Copyright (C) 2012, 2015 Rocky Bernstein
 +
 +**********************************************************************/
 +
@@ -406,8 +406,8 @@ index 0000000..71fd471
 +
 +    assert_raises TypeError do iseq.brkpt_set('a') end
 +
-+    iseq.brkpt_set(2)
-+    iseq.brkpt_set(4)
++    iseq.brkpt_set(1)
++    iseq.brkpt_set(3)
 +    events = []
 +    eval <<-EOF.gsub(/^.*?: /, "")
 +     1: set_trace_func(Proc.new { |event, file, lineno, mid, binding, klass|
