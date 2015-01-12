@@ -1,4 +1,4 @@
-Show that this is a pached ruby with threadframe and debugger support
+Show that this is a patched ruby with threadframe and debugger support
 
 
 diff --git a/test/debugger-ext/test-000-config.rb b/test/debugger-ext/test-000-config.rb
@@ -42,6 +42,6 @@ index 07076d4..c8e965c 100755
  print "  CONFIG = {}\n"
  print "  CONFIG[\"DESTDIR\"] = DESTDIR\n"
 +print "  CONFIG[\"rb-threadframe\"] = \"0.3\"\n"
- 
+
  versions = {}
  IO.foreach(File.join(srcdir, "version.h")) do |l|
