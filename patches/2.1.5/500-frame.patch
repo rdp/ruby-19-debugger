@@ -15,7 +15,7 @@ new file mode 100644
 index 0000000..cde1012
 --- /dev/null
 +++ b/frame.c
-@@ -0,0 +1,1017 @@
+@@ -0,0 +1,1033 @@
 +/*
 + * Copyright (C) 2012, 2014, 2015 Rocky Bernstein
 + *
@@ -72,8 +72,8 @@ index 0000000..cde1012
 +
 +/* Static forward declarations */
 +VALUE rb_frame_iseq(VALUE klass);
-+static VALUE frame_prev(rb_control_frame_t *prev_cfp,
-+			rb_thread_t *th, int n);
++VALUE frame_prev(rb_control_frame_t *prev_cfp,
++                 rb_thread_t *th, int n);
 +static int   frame_stack_size(rb_control_frame_t *cfp,
 +			      rb_thread_t *th);
 +static VALUE rb_frame_type(VALUE klass);
@@ -650,13 +650,13 @@ index 0000000..cde1012
 +/*
 +   See the above frame_prev comment for what's going on here.
 +*/
-+static VALUE
++VALUE
 +frame_prev(rb_control_frame_t *prev_cfp, rb_thread_t *th,
 +			   int n)
 +{
 +  thread_frame_t *tf;
 +  VALUE prev;
-+  rb_control_frame_t *cfp = NULL;
++  rb_control_frame_t *cfp = prev_cfp;
 +
 +  for (; n > 0; n--) {
 +    cfp = prev_cfp;
@@ -797,6 +797,21 @@ index 0000000..cde1012
 +    }
 +
 +    return frame_prev(th->cfp, th, prev_count);
++}
++
++
++/*
++ *  call-seq:
++ *     RubyVM::Frame::stack_size -> FIXNUM
++ *
++ *  Get the frame stack size for the current thread.
++ *
++ */
++static VALUE
++rb_frame_s_stack_size(void)
++{
++    rb_thread_t *th = ruby_current_thread;
++    return INT2FIX(frame_stack_size(th->cfp, th));
 +}
 +
 +
@@ -1031,6 +1046,7 @@ index 0000000..cde1012
 +    rb_eFrameError = rb_define_class("FrameError", rb_eStandardError);
 +    rb_define_method(rb_cFrame, "equal?",     frame_equal, 1);
 +
++    rb_define_singleton_method(rb_cFrame, "stack_size", rb_frame_s_stack_size, 0);
 +    rb_define_singleton_method(rb_cFrame, "get", rb_frame_s_get, -1);
 +}
 diff --git a/inits.c b/inits.c

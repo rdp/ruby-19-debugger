@@ -64,7 +64,7 @@ index ca159af..c3f7af6 100644
   *     RubyVM::Frame#binding   -> binding
   *
   *  Returns a binding for a given thread frame.
-@@ -977,6 +1020,8 @@ Init_Frame(void)
+@@ -992,6 +1020,8 @@ Init_Frame(void)
 
      rb_define_method(rb_cFrame, "valid?",       rb_frame_valid, 0);
 

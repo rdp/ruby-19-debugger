@@ -1,0 +1,74 @@
+Add "frame" method to tracepoint. Requires frame patch to be installed first.
+
+diff --git a/test/debugger-ext/test-tracepoint.rb b/test/debugger-ext/test-tracepoint.rb
+new file mode 100644
+index 0000000..1103040
+--- /dev/null
++++ b/test/debugger-ext/test-tracepoint.rb
+@@ -0,0 +1,18 @@
++require 'test/unit'
++
++class TestTracePoint < Test::Unit::TestCase
++
++    def five(a)
++        5
++    end
++    def test_basic
++        trace = TracePoint.new do |tp|
++            frame = tp.frame
++            assert_equal(tp.lineno, frame.source_location[0])
++        end
++        trace.enable
++        x = 1
++        five(10)
++        trace.disable
++    end
++end
+diff --git a/vm_trace.c b/vm_trace.c
+index 2cea5f2..af5ed43 100644
+--- a/vm_trace.c
++++ b/vm_trace.c
+@@ -29,6 +29,10 @@
+ #include "vm_core.h"
+ #include "eval_intern.h"
+
++VALUE
++frame_prev(rb_control_frame_t *prev_cfp, rb_thread_t *th,
++	   int n);
++
+ /* (1) trace mechanisms */
+
+ typedef struct rb_event_hook_struct {
+@@ -974,6 +978,23 @@ tracepoint_attr_self(VALUE tpval)
+ }
+
+ /*
++ * Return the generated frame object from event
++ */
++static VALUE
++tracepoint_attr_frame(VALUE tpval)
++{
++    rb_trace_arg_t *trace_arg = get_trace_arg();
++    rb_thread_t *th = trace_arg->th;
++    rb_control_frame_t *cfp = rb_vm_get_ruby_level_next_cfp(th,
++							    trace_arg->cfp);
++    if (cfp) {
++	return frame_prev(cfp, th, 0);
++    } else {
++	return Qnil;
++    }
++}
++
++/*
+  *  Return value from +:return+, +c_return+, and +b_return+ event
+  */
+ static VALUE
+@@ -1412,6 +1435,8 @@ Init_vm_trace(void)
+     rb_define_method(rb_cTracePoint, "return_value", tracepoint_attr_return_value, 0);
+     rb_define_method(rb_cTracePoint, "raised_exception", tracepoint_attr_raised_exception, 0);
+
++   rb_define_method(rb_cTracePoint, "frame", tracepoint_attr_frame, 0);
++
+     /* initialized for postponed job */
+
+     Init_postponed_job();
