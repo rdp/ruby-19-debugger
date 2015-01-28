@@ -120,6 +120,22 @@ index 2047d5a..2cea5f2 100644
        case RUBY_EVENT_LINE:     return "line";
        case RUBY_EVENT_CLASS:    return "class";
        case RUBY_EVENT_END:      return "end";
+@@ -586,6 +587,7 @@ get_event_id(rb_event_flag_t event)
+     switch (event) {
+ #define C(name, NAME) case RUBY_EVENT_##NAME: CONST_ID(id, #name); return id;
+ 	C(line, LINE);
++	C(brkpt, BRKPT);
+ 	C(class, CLASS);
+ 	C(end, END);
+ 	C(call, CALL);
+@@ -1291,6 +1293,7 @@ tracepoint_inspect(VALUE self)
+ 				  FIX2INT(rb_tracearg_lineno(trace_arg)),
+ 				  sym);
+ 	    }
++	  case RUBY_EVENT_BRKPT:
+ 	  case RUBY_EVENT_CALL:
+ 	  case RUBY_EVENT_C_CALL:
+ 	  case RUBY_EVENT_RETURN:
 diff --git a/brkpt.c b/brkpt.c
 new file mode 100644
 index 0000000..29dd23d

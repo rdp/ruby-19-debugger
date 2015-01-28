@@ -39,7 +39,7 @@ index 2cea5f2..af5ed43 100644
  /* (1) trace mechanisms */
 
  typedef struct rb_event_hook_struct {
-@@ -974,6 +978,23 @@ tracepoint_attr_self(VALUE tpval)
+@@ -975,6 +979,23 @@ tracepoint_attr_self(VALUE tpval)
  }
 
  /*
@@ -63,7 +63,7 @@ index 2cea5f2..af5ed43 100644
   *  Return value from +:return+, +c_return+, and +b_return+ event
   */
  static VALUE
-@@ -1412,6 +1435,8 @@ Init_vm_trace(void)
+@@ -1414,6 +1435,8 @@ Init_vm_trace(void)
      rb_define_method(rb_cTracePoint, "return_value", tracepoint_attr_return_value, 0);
      rb_define_method(rb_cTracePoint, "raised_exception", tracepoint_attr_raised_exception, 0);
 
