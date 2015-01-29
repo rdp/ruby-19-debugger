@@ -64,7 +64,7 @@ index ca159af..c3f7af6 100644
   *     RubyVM::Frame#binding   -> binding
   *
   *  Returns a binding for a given thread frame.
-@@ -992,6 +1020,8 @@ Init_Frame(void)
+@@ -1003,6 +1031,8 @@ Init_Frame(void)
 
      rb_define_method(rb_cFrame, "valid?",       rb_frame_valid, 0);
 
@@ -108,7 +108,7 @@ diff --git a/test/debugger-ext/test-frame.rb b/test/debugger-ext/test-frame.rb
 index 732a120..1c4e551 100644
 --- a/test/debugger-ext/test-frame.rb
 +++ b/test/debugger-ext/test-frame.rb
-@@ -63,9 +63,8 @@ class TestFrame < Test::Unit::TestCase
+@@ -73,9 +73,8 @@ class TestFrame < Test::Unit::TestCase
          assert(pc2 > pc1, 'PC offset should have changed (for the greater)')
          assert_equal('test_fields', tf.method)
          assert_equal(self, tf.self)
@@ -120,7 +120,7 @@ index 732a120..1c4e551 100644
 
          # assert_raises IndexError do
          #   x = tf.lfp(tf.iseq.local_size+1)
-@@ -84,21 +83,19 @@ class TestFrame < Test::Unit::TestCase
+@@ -94,21 +93,19 @@ class TestFrame < Test::Unit::TestCase
              assert_equal('CFUNC', tf.prev.type)
              assert_equal('times', tf.prev.method)
              assert_equal(self, tf.self)
@@ -148,7 +148,7 @@ index 732a120..1c4e551 100644
          end
 
          x  = lambda do |x,y|
-@@ -106,9 +103,8 @@ class TestFrame < Test::Unit::TestCase
+@@ -116,9 +113,8 @@ class TestFrame < Test::Unit::TestCase
              assert_equal(nil, frame.method)
              assert_equal('LAMBDA', frame.type)
              assert_equal(x, tf.self)
