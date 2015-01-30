@@ -52,6 +52,14 @@ index a06caea..9fa494a 100644
      rb_define_method(rb_cProc, "to_s", proc_to_s, 0);
      rb_define_alias(rb_cProc, "inspect", "to_s");
      rb_define_method(rb_cProc, "lambda?", rb_proc_lambda_p, 0);
+@@ -2816,6 +2816,7 @@ Init_Proc(void)
+     rb_define_method(rb_cUnboundMethod, "arity", method_arity_m, 0);
+     rb_define_method(rb_cUnboundMethod, "inspect", method_inspect, 0);
+     rb_define_method(rb_cUnboundMethod, "to_s", method_inspect, 0);
++    rb_define_method(rb_cUnboundMethod, "iseq",  rb_method_iseq, 0);
+     rb_define_method(rb_cUnboundMethod, "name", method_name, 0);
+     rb_define_method(rb_cUnboundMethod, "original_name", method_original_name, 0);
+     rb_define_method(rb_cUnboundMethod, "owner", method_owner, 0);
 diff --git a/test/debugger-ext/test-proc.rb b/test/debugger-ext/test-proc.rb
 new file mode 100644
 index 0000000..7737aef
