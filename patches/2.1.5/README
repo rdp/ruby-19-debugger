@@ -240,6 +240,9 @@ This depends on frame.c (500-frame.patch) to add the argc method and
 to add to test_frame.rb. It could be split into a two parts. One part
 for the C runtime and another part for frame.c
 
+Also we move C calls/return event hook calls inside frame pushes and
+pops so that inside the hook you see that frame on the stack.
+
 -------------------
 530-tracepoint-frame.patch
 

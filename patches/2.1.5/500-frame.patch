@@ -1,3 +1,13 @@
+Adds a frame object which gives dynamic information about a call-stack frame. From this we have access
+to lots of low-level run-time information:
+
+* the instruction sequence
+* parameter arguments
+* local variable information
+* stack data information (sp)
+* current program counter location (PC)
+* previous frame
+
 diff --git a/common.mk b/common.mk
 index cb9b47b..1b14ce2 100644
 --- a/common.mk

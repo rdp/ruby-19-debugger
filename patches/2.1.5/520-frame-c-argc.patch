@@ -10,12 +10,25 @@ This depends on frame.c (500-frame.patch) to add the argc method and
 to add to test_frame.rb. It could be split into a two parts. One part
 for the C runtime and another part for frame.c
 
+Also we move C calls/return event hook calls inside frame pushes and
+pops so that inside the hook you see that frame on the stack.
+
 diff --git a/frame.c b/frame.c
-index ca159af..c3f7af6 100644
+index 34f193f..9a0946d 100644
 --- a/frame.c
 +++ b/frame.c
-@@ -348,6 +348,49 @@ FRAME_FIELD_METHOD(flag) ;
-
+@@ -55,7 +55,8 @@ VALUE rb_eFrameError;  /* Error raised on invalid frames. */
+ /* Static forward declarations */
+ VALUE rb_frame_iseq(VALUE klass);
+ VALUE frame_prev(rb_control_frame_t *prev_cfp,
+-                 rb_thread_t *th, int n);
++		 rb_thread_t *th, int n);
++
+ static int   frame_stack_size(rb_control_frame_t *cfp,
+ 			      rb_thread_t *th);
+ static VALUE rb_frame_type(VALUE klass);
+@@ -348,6 +349,49 @@ FRAME_FIELD_METHOD(flag) ;
+ 
  /*
   *  call-seq:
 + *     RubyVM::Frame#argc -> Fixnum
@@ -64,10 +77,19 @@ index ca159af..c3f7af6 100644
   *     RubyVM::Frame#binding   -> binding
   *
   *  Returns a binding for a given thread frame.
-@@ -1003,6 +1031,8 @@ Init_Frame(void)
-
+@@ -884,7 +928,7 @@ rb_frame_source_location(VALUE klass)
+ 	   treat the PC of a trace location as the previous instruction.
+ 	   Since we allow breakpoints on trace locations which happen *before*
+ 	   the trace is executed, we want to correct locations here.
+-       */
++	*/
+ 	const rb_iseq_t *iseq = cfp->iseq;
+ 	size_t pos = cfp->pc - iseq->iseq_encoded;
+ 	VALUE insn = iseq->iseq[pos];
+@@ -1003,6 +1047,8 @@ Init_Frame(void)
+ 
      rb_define_method(rb_cFrame, "valid?",       rb_frame_valid, 0);
-
+ 
 +    rb_define_method(rb_cFrame, "argc",         rb_frame_argc, 0);
 +    rb_define_method(rb_cFrame, "arity",        rb_frame_arity, 0);
      rb_define_method(rb_cFrame, "binding",      rb_frame_binding, 0);
@@ -80,7 +102,7 @@ index 9027589..067f5d3 100644
 @@ -34,9 +34,13 @@ int rb_iseq_line_trace_each(VALUE iseqval, int (*func)(int line, rb_event_flag_t
  VALUE rb_iseq_line_trace_all(VALUE iseqval);
  VALUE rb_iseq_line_trace_specify(VALUE iseqval, VALUE pos, VALUE set);
-
+ 
 +VALUE rb_iseq_argc(VALUE iseqval);
 +VALUE rb_iseq_arity(VALUE iseqval);
 +
@@ -102,13 +124,30 @@ index bf6f302..9de35db 100644
 +    int actual_argc; /* This probably should be called argc. It is the
 +			argument count at runtime.*/
  } rb_method_cfunc_t;
-
+ 
  typedef struct rb_method_attr_struct {
 diff --git a/test/debugger-ext/test-frame.rb b/test/debugger-ext/test-frame.rb
-index 732a120..1c4e551 100644
+index 288dba4..aa1b42f 100644
 --- a/test/debugger-ext/test-frame.rb
 +++ b/test/debugger-ext/test-frame.rb
-@@ -73,9 +73,8 @@ class TestFrame < Test::Unit::TestCase
+@@ -14,7 +14,7 @@ class TestFrame < Test::Unit::TestCase
+             assert METHOD_TYPES.member?(tf.type)
+             assert_equal(['file', cl.path], tf.source_container[0...-1],
+                          "location matching caller_locations at depth #{i}")
+-            # tf.source_location can be less than cl.lineno when
++            # source_location can be less than cl.lineno when cl_lineno
+             # we are stopped at a trace instruction.
+             # FIXME: either figure out how to remove the magic call stack numbers or
+             # change the test to be unconditionally <=
+@@ -56,7 +56,6 @@ class TestFrame < Test::Unit::TestCase
+     end
+ 
+     def test_sp
+-        p Fixnum
+         tf = RubyVM::Frame.get
+ 
+         assert tf.sp(1)
+@@ -73,9 +72,8 @@ class TestFrame < Test::Unit::TestCase
          assert(pc2 > pc1, 'PC offset should have changed (for the greater)')
          assert_equal('test_fields', tf.method)
          assert_equal(self, tf.self)
@@ -117,10 +156,10 @@ index 732a120..1c4e551 100644
 -        ## assert_equal(0, tf.argc)
 +        assert_equal(0, tf.arity)
 +        assert_equal(0, tf.argc)
-
+ 
          # assert_raises IndexError do
          #   x = tf.lfp(tf.iseq.local_size+1)
-@@ -94,21 +93,19 @@ class TestFrame < Test::Unit::TestCase
+@@ -94,21 +92,19 @@ class TestFrame < Test::Unit::TestCase
              assert_equal('CFUNC', tf.prev.type)
              assert_equal('times', tf.prev.method)
              assert_equal(self, tf.self)
@@ -136,7 +175,7 @@ index 732a120..1c4e551 100644
 +            assert_equal(0, tf.arity)
 +            assert_equal(0, tf.argc)
          end
-
+ 
          # 1.upto also creates a C frame.
          1.upto(1) do
              tf = RubyVM::Frame::get.prev
@@ -146,9 +185,9 @@ index 732a120..1c4e551 100644
 +            assert_equal(1, tf.arity, 'C arity should work nowadays' )
 +            assert_equal(1, tf.argc)
          end
-
+ 
          x  = lambda do |x,y|
-@@ -116,9 +113,8 @@ class TestFrame < Test::Unit::TestCase
+@@ -116,9 +112,8 @@ class TestFrame < Test::Unit::TestCase
              assert_equal(nil, frame.method)
              assert_equal('LAMBDA', frame.type)
              assert_equal(x, tf.self)
@@ -159,35 +198,87 @@ index 732a120..1c4e551 100644
 +            assert_equal(2, frame.argc)
          end
          x.call(x,2)
-
+ 
 diff --git a/vm_eval.c b/vm_eval.c
-index 99fd800..74acc80 100644
+index 99fd800..d9345b8 100644
 --- a/vm_eval.c
 +++ b/vm_eval.c
-@@ -125,6 +125,11 @@ vm_call0_cfunc_with_frame(rb_thread_t* th, rb_call_info_t *ci, const VALUE *argv
+@@ -125,14 +125,20 @@ vm_call0_cfunc_with_frame(rb_thread_t* th, rb_call_info_t *ci, const VALUE *argv
      ID mid = ci->mid;
      rb_block_t *blockptr = ci->blockptr;
-
+ 
+-    RUBY_DTRACE_CMETHOD_ENTRY_HOOK(th, defined_class, mid);
+-    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_CALL, recv, mid, defined_class, Qnil);
 +    /* Store actual argument count. Note that cfunc.argc
 +       contains the prototype value.
 +    */
 +    me->def->body.cfunc.actual_argc = argc;
 +
-     RUBY_DTRACE_CMETHOD_ENTRY_HOOK(th, defined_class, mid);
-     EXEC_EVENT_HOOK(th, RUBY_EVENT_C_CALL, recv, mid, defined_class, Qnil);
      {
+ 	rb_control_frame_t *reg_cfp = th->cfp;
+ 
+ 	vm_push_frame(th, 0, VM_FRAME_MAGIC_CFUNC, recv, defined_class,
+ 		      VM_ENVVAL_BLOCK_PTR(blockptr), 0, reg_cfp->sp, 1, me, 0);
+ 
++	RUBY_DTRACE_CMETHOD_ENTRY_HOOK(th, defined_class, mid);
++	EXEC_EVENT_HOOK(th, RUBY_EVENT_C_CALL, recv, mid, defined_class,
++			Qnil);
+ 	if (len >= 0) rb_check_arity(argc, len, len);
+ 
+ 	VM_PROFILE_UP(2);
+@@ -142,10 +148,11 @@ vm_call0_cfunc_with_frame(rb_thread_t* th, rb_call_info_t *ci, const VALUE *argv
+ 		rb_bug("vm_call0_cfunc_with_frame: cfp consistency error");
+ 	}
+ 	VM_PROFILE_UP(3);
++	EXEC_EVENT_HOOK(th, RUBY_EVENT_C_RETURN, recv, mid, defined_class,
++			val);
++	RUBY_DTRACE_CMETHOD_RETURN_HOOK(th, defined_class, mid);
+ 	vm_pop_frame(th);
+     }
+-    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_RETURN, recv, mid, defined_class, val);
+-    RUBY_DTRACE_CMETHOD_RETURN_HOOK(th, defined_class, mid);
+ 
+     return val;
+ }
 diff --git a/vm_insnhelper.c b/vm_insnhelper.c
-index cceefdb..7ab3cf6 100644
+index cceefdb..c6ce5d0 100644
 --- a/vm_insnhelper.c
 +++ b/vm_insnhelper.c
-@@ -1476,6 +1476,11 @@ vm_call_cfunc_with_frame(rb_thread_t *th, rb_control_frame_t *reg_cfp, rb_call_i
+@@ -1476,27 +1476,32 @@ vm_call_cfunc_with_frame(rb_thread_t *th, rb_control_frame_t *reg_cfp, rb_call_i
      rb_block_t *blockptr = ci->blockptr;
      int argc = ci->argc;
-
+ 
+-    RUBY_DTRACE_CMETHOD_ENTRY_HOOK(th, me->klass, me->called_id);
+-    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_CALL, recv, me->called_id, me->klass, Qundef);
 +    /* Store actual argument count. Note that (len) cfunc->argc
 +       contains the prototype value.
 +    */
 +    me->def->body.cfunc.actual_argc = argc;
+ 
+     vm_push_frame(th, 0, VM_FRAME_MAGIC_CFUNC, recv, defined_class,
+ 		  VM_ENVVAL_BLOCK_PTR(blockptr), 0, th->cfp->sp, 1, me, 0);
+ 
++    RUBY_DTRACE_CMETHOD_ENTRY_HOOK(th, me->klass, me->called_id);
++    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_CALL, recv, me->called_id, me->klass, Qundef);
 +
-     RUBY_DTRACE_CMETHOD_ENTRY_HOOK(th, me->klass, me->called_id);
-     EXEC_EVENT_HOOK(th, RUBY_EVENT_C_CALL, recv, me->called_id, me->klass, Qundef);
+     if (len >= 0) rb_check_arity(argc, len, len);
+ 
+     reg_cfp->sp -= argc + 1;
+     VM_PROFILE_UP(0);
+     val = (*cfunc->invoker)(cfunc->func, recv, argc, reg_cfp->sp + 1);
+ 
++    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_RETURN, recv, me->called_id, me->klass, val);
++    RUBY_DTRACE_CMETHOD_RETURN_HOOK(th, me->klass, me->called_id);
++
+     if (reg_cfp != th->cfp + 1) {
+ 	rb_bug("vm_call_cfunc - cfp consistency error");
+     }
+ 
+     vm_pop_frame(th);
+ 
+-    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_RETURN, recv, me->called_id, me->klass, val);
+-    RUBY_DTRACE_CMETHOD_RETURN_HOOK(th, me->klass, me->called_id);
+-
+     return val;
+ }
+ 
