@@ -31,9 +31,10 @@ index 9365ca9..6487ca2 100644
  static size_t
  iseq_memsize(const void *ptr)
  {
-@@ -2308,6 +2325,167 @@ ISEQ_INT_FIELD_METHOD(iseq_size) ;
+@@ -2308,7 +2325,168 @@ ISEQ_INT_FIELD_METHOD(iseq_size) ;
  ISEQ_INT_FIELD_METHOD(local_size) ;
  ISEQ_INT_FIELD_METHOD(local_table_size) ;
+ ISEQ_INT_FIELD_METHOD(type) ;
 
 +#define COMPILE_OPTS_BOOL_SET_HASH(FIELD) \
 +    rb_hash_aset(hash_opts, rb_str_new2(#FIELD), \
