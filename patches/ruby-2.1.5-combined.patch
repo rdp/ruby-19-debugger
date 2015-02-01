@@ -318,10 +318,10 @@ index 44f0459..845ffd1 100644
  static const char *
 diff --git a/frame.c b/frame.c
 new file mode 100644
-index 0000000..95dd97b
+index 0000000..00c12e5
 --- /dev/null
 +++ b/frame.c
-@@ -0,0 +1,1173 @@
+@@ -0,0 +1,1175 @@
 +/*
 + * Copyright (C) 2012, 2014-2015 Rocky Bernstein
 + *
@@ -1100,6 +1100,7 @@ index 0000000..95dd97b
 +  return prev;
 +}
 +
++FRAME_FIELD_METHOD(klass) ;
 +FRAME_FIELD_METHOD(proc) ;
 +FRAME_FIELD_METHOD(self) ;
 +
@@ -1451,6 +1452,7 @@ index 0000000..95dd97b
 +    rb_define_method(rb_cFrame, "binding",      rb_frame_binding, 0);
 +    rb_define_method(rb_cFrame, "flag",         rb_frame_flag, 0);
 +    rb_define_method(rb_cFrame, "initialize",   frame_initialize, 1);
++    rb_define_method(rb_cFrame, "klass",        rb_frame_klass, 0);
 +    rb_define_method(rb_cFrame, "label",        rb_frame_label, 0);
 +    rb_define_method(rb_cFrame, "method",       rb_frame_method, 0);
 +    rb_define_method(rb_cFrame, "pc_offset",    rb_frame_pc_offset, 0);
@@ -3796,7 +3798,7 @@ index 0000000..b330c3e
 +
 +end
 diff --git a/test/debugger-ext/testit.sh b/test/debugger-ext/testit.sh
-new file mode 100644
+new file mode 100755
 index 0000000..d481fc3
 --- /dev/null
 +++ b/test/debugger-ext/testit.sh
