@@ -42,7 +42,8 @@ case $patchfile in
 	    500-frame.patch \
 	    510-seq-start-insn.patch \
 	    520-frame-c-argc.patch \
-	    530-tracepoint-frame.patch
+	    530-tracepoint-frame.patch \
+	    540-frame-trace-disable.patch
 	do
 	    patch_file=${dirname}/../2.1.5/$file
 	    echo -- Applying patches in $patch_file ... | tee -a patches_applied.log

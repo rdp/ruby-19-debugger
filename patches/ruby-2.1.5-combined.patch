@@ -295,14 +295,35 @@ index 3f51cac..d604f33 100644
      debugs("[new_child_iseq]< ---------------------------------------\n");
      iseq_add_mark_object(iseq, ret);
      return ret;
+diff --git a/error.c b/error.c
+index 44f0459..845ffd1 100644
+--- a/error.c
++++ b/error.c
+@@ -45,14 +45,13 @@ extern const char ruby_description[];
+ 
+ static const char REPORTBUG_MSG[] =
+ 	"[NOTE]\n" \
+-	"You may have encountered a bug in the Ruby interpreter" \
+-	" or extension libraries.\n" \
++	"You may have encountered a bug in Rocky's debugger extensions,\n" \
++	"the Ruby interpreter, or extension libraries.\n" \
+ 	"Bug reports are welcome.\n" \
+ 	""
+ #if defined __APPLE__
+ 	"Don't forget to include the above Crash Report log file.\n"
+ #endif
+-	"For details: http://www.ruby-lang.org/bugreport.html\n\n" \
+     ;
+ 
+ static const char *
 diff --git a/frame.c b/frame.c
 new file mode 100644
-index 0000000..35636ea
+index 0000000..95dd97b
 --- /dev/null
 +++ b/frame.c
-@@ -0,0 +1,1117 @@
+@@ -0,0 +1,1173 @@
 +/*
-+ * Copyright (C) 2012, 2014, 2015 Rocky Bernstein
++ * Copyright (C) 2012, 2014-2015 Rocky Bernstein
 + *
 + *  Access to Ruby's rb_control_frame_t and methods for working with that.
 + *  Things like getting a binding for a control frame. In Ruby 1.9.2 this code
@@ -742,7 +763,7 @@ index 0000000..35636ea
 +static VALUE
 +frame_equal(VALUE klass, VALUE tfval2)
 +{
-+    FRAME_SETUP_WITH_ERROR ;
++    FRAME_SETUP ;
 +
 +    {
 +	thread_frame_t *tf2;
@@ -804,11 +825,73 @@ index 0000000..35636ea
 + * threads other than the running one should be stopped while the frame
 + * variable is active.
 + */
-+static VALUE
++VALUE
 +rb_frame_valid(VALUE klass)
 +{
 +    FRAME_SETUP ;
 +    return frame_valid(tf);
++}
++
++VALUE
++rb_frame_return_stop_set(VALUE klass, VALUE boolval)
++{
++    short int boolmask = !(NIL_P(boolval) || Qfalse == boolval);
++    FRAME_SETUP_WITH_ERROR ;
++
++    if (boolmask)
++	tf->cfp->trace_disable |=  VM_FRAME_TRACE_RETURN;
++    else
++	tf->cfp->trace_disable &= ~VM_FRAME_TRACE_RETURN;
++    return boolval;
++}
++
++VALUE
++rb_frame_trace_off_set(VALUE klass, VALUE boolval)
++{
++    short int boolmask = !(NIL_P(boolval) || Qfalse == boolval);
++    FRAME_SETUP_WITH_ERROR ;
++
++    if (boolmask)
++	tf->cfp->trace_disable |=  VM_FRAME_TRACE_OFF;
++    else
++	tf->cfp->trace_disable &= ~VM_FRAME_TRACE_OFF;
++    return boolval;
++}
++
++VALUE
++rb_frame_trace_off_1_set(VALUE klass, VALUE boolval)
++{
++    short int boolmask = !(NIL_P(boolval) || Qfalse == boolval);
++    FRAME_SETUP_WITH_ERROR ;
++
++    if (boolmask)
++	tf->cfp->trace_disable |=  VM_FRAME_TRACE_OFF_1;
++    else
++	tf->cfp->trace_disable &= ~VM_FRAME_TRACE_OFF_1;
++    return boolval;
++}
++
++VALUE
++rb_frame_is_return_stop(VALUE klass)
++{
++    FRAME_SETUP_WITH_ERROR ;
++    return (tf->cfp->trace_disable & VM_FRAME_TRACE_RETURN) ?
++	Qtrue : Qfalse;
++}
++
++VALUE
++rb_frame_is_trace_off(VALUE klass)
++{
++    FRAME_SETUP_WITH_ERROR ;
++    return (tf->cfp->trace_disable & VM_FRAME_TRACE_OFF) ? Qtrue : Qfalse;
++}
++
++VALUE
++rb_frame_is_trace_off_1(VALUE klass)
++{
++    FRAME_SETUP_WITH_ERROR ;
++    return (tf->cfp->trace_disable & VM_FRAME_TRACE_OFF_1) ?
++	Qtrue : Qfalse;
 +}
 +
 +/*
@@ -1253,19 +1336,6 @@ index 0000000..35636ea
 +	    /* printf("At trace instruction\n"); */
 +	    pos++; /* Correct for subtraction in rb_iseq_line_no */
 +	}
-+    if (RUBY_VM_NORMAL_ISEQ_P(cfp->iseq)) {
-+	/* One thing MRI line locations do that foul us up is to
-+	   treat the PC of a trace location as the previous instruction.
-+	   Since we allow breakpoints on trace locations which happen *before*
-+	   the trace is executed, we want to correct locations here.
-+	const rb_iseq_t *iseq = cfp->iseq;
-+	size_t pos = cfp->pc - iseq->iseq_encoded;
-+	VALUE insn = iseq->iseq[pos];
-+	int is_trace = strncmp(insn_name(insn), "trace", sizeof("trace")) == 0;
-+	if (is_trace) {
-+	    /* printf("At trace instruction\n"); */
-+	    pos++; /* Correct for subtraction in rb_iseq_line_no */
-+	}
 +	return rb_ary_new3(1, INT2FIX(rb_iseq_line_no(iseq, pos)));
 +    } else
 +	return Qnil;
@@ -1309,8 +1379,8 @@ index 0000000..35636ea
 + *
 + *  Returns the thread object for the thread frame.
 + */
-+static VALUE
-+frame_thread(VALUE klass)
++VALUE
++rb_frame_thread(VALUE klass)
 +{
 +    FRAME_SETUP ;
 +    return tf->th->self;
@@ -1403,13 +1473,20 @@ index 0000000..35636ea
 +    rb_define_method(rb_cFrame, "stack_size",   rb_frame_stack_size, 0);
 +#ifdef ROCKY_FIXED
 +    rb_define_method(rb_cFrame, "next",         rb_frame_next, 0);
-+    rb_define_singleton_method(rb_cFrame, "current", frame_s_current, 0);
 +#endif
 +
++    rb_define_method(rb_cFrame, "return_stop=",
++		     rb_frame_return_stop_set, 1);
++    rb_define_method(rb_cFrame, "return_stop?",
++		     rb_frame_is_return_stop, 0);
 +
-+    rb_define_method(rb_cFrame, "thread",     frame_thread, 0);
-+    rb_define_method(rb_cFrame, "type",       rb_frame_type, 0);
-+
++    rb_define_method(rb_cFrame, "thread",       rb_frame_thread, 0);
++    rb_define_method(rb_cFrame, "trace_off?",   rb_frame_is_trace_off, 0);
++    rb_define_method(rb_cFrame, "trace_off=",   rb_frame_trace_off_set, 1);
++    rb_define_method(rb_cFrame, "trace_off1?",  rb_frame_is_trace_off_1, 0);
++    rb_define_method(rb_cFrame, "trace_off1=",
++		     rb_frame_trace_off_1_set, 1);
++    rb_define_method(rb_cFrame, "type",         rb_frame_type, 0);
 +
 +    rb_define_method(rb_cFrame, "pc_offset=", frame_set_pc_offset, 1);
 +    rb_eFrameError = rb_define_class("FrameError", rb_eStandardError);
@@ -2797,6 +2874,19 @@ index c7be967..604c62a 100644
  #if defined(USE_DLN_A_OUT)
      dln_argv0 = origarg.argv[0];
  #endif
+diff --git a/template/fake.rb.in b/template/fake.rb.in
+index c94eec3..5824974 100644
+--- a/template/fake.rb.in
++++ b/template/fake.rb.in
+@@ -13,7 +13,7 @@ class Object
+   remove_const :RUBY_DESCRIPTION if defined?(RUBY_DESCRIPTION)
+   RUBY_PLATFORM = "@arch@"
+   RUBY_VERSION = "@RUBY_PROGRAM_VERSION@"
+-  RUBY_DESCRIPTION = "ruby #{RUBY_VERSION} (@RUBY_RELEASE_DATE@) [#{RUBY_PLATFORM}]"
++  RUBY_DESCRIPTION = "ruby #{RUBY_VERSION} with debugger support (@RUBY_RELEASE_DATE@) [#{RUBY_PLATFORM}]"
+ end
+ if RUBY_PLATFORM =~ /mswin|bccwin|mingw/
+   class File
 diff --git a/template/insns_info.inc.tmpl b/template/insns_info.inc.tmpl
 index 99e4b7b..985736a 100644
 --- a/template/insns_info.inc.tmpl
@@ -2903,6 +2993,60 @@ index 0000000..05cb775
 +    assert_equal true, s1.size > s2.size
 +  end
 +end
+diff --git a/test/debugger-ext/test-frame-disable.rb b/test/debugger-ext/test-frame-disable.rb
+new file mode 100644
+index 0000000..bf50412
+--- /dev/null
++++ b/test/debugger-ext/test-frame-disable.rb
+@@ -0,0 +1,48 @@
++require 'test/unit'
++
++class TestFrame < Test::Unit::TestCase
++
++    def five(a)
++        5
++    end
++    def test_frame_stop
++        @events = []
++        trace = TracePoint.new do |tp|
++            @events << tp.event
++        end
++        trace.enable
++        x = 1
++        five(10)
++        trace.disable
++        assert_equal false, @events.empty?
++        frame = RubyVM::Frame::get
++        assert_equal false, frame.trace_off?
++        # p @events
++        frame.trace_off = true
++        assert_equal true, frame.trace_off?
++        events_first = @events.dup
++        @events = []
++        trace.enable
++        x = 1
++        five(10)
++        trace.disable
++        # p @events
++        assert_equal [], @events
++        frame.trace_off1 = true
++        frame.trace_off = false
++        assert_equal true, frame.trace_off1?
++        assert_equal false, frame.trace_off?
++        trace.enable
++        x = 1
++        five(10)
++        trace.disable
++        # p @events
++        assert @events.size < events_first.size
++
++    end
++
++end
++
++# We want to double-check we didn't mess up any pointers somewhere along
++# the line.
++at_exit { GC.start  }
 diff --git a/test/debugger-ext/test-frame.rb b/test/debugger-ext/test-frame.rb
 new file mode 100644
 index 0000000..026e212
@@ -3769,7 +3913,7 @@ index a506b04..8723430 100644
  #endif
 -
 diff --git a/vm_core.h b/vm_core.h
-index 21c9aae..dd89847 100644
+index 21c9aae..7904cd5 100644
 --- a/vm_core.h
 +++ b/vm_core.h
 @@ -321,6 +321,23 @@ struct rb_iseq_struct {
@@ -3796,7 +3940,17 @@ index 21c9aae..dd89847 100644
  };
  
  enum ruby_special_exceptions {
-@@ -538,6 +555,19 @@ typedef struct rb_thread_struct {
+@@ -453,6 +470,9 @@ typedef struct rb_control_frame_struct {
+     rb_iseq_t *block_iseq;	/* cfp[7] / block[3] */
+     VALUE proc;			/* cfp[8] / block[4] */
+     const rb_method_entry_t *me;/* cfp[9] */
++    short int trace_disable;    /* Bits to disable per-frame event tracing.
++				   See VM_FRAME_TRACE_xxx defines.
++				 */
+ 
+ #if VM_DEBUG_BP_CHECK
+     VALUE *bp_check;		/* cfp[10] */
+@@ -538,6 +558,15 @@ typedef struct rb_thread_struct {
  
      int waiting_fd;
  
@@ -3804,10 +3958,6 @@ index 21c9aae..dd89847 100644
 +    rb_hook_list_t event_hooks;
 +    struct rb_trace_arg_struct *trace_arg; /* trace information */
 +    rb_event_flag_t event_flags;
-+    int tracing;  /* 0 if not tracing. If less than 0, skip that many
-+		     C call/return pairs */
-+
-+    int exec_event_tracing;  /* 0 if not in rb_threadptr_evec_event_hooks. */
 +
 +    /* misc */
 +    int method_missing_reason;
@@ -3816,7 +3966,7 @@ index 21c9aae..dd89847 100644
      /* for rb_iterate */
      const rb_block_t *passed_block;
  
-@@ -563,6 +593,14 @@ typedef struct rb_thread_struct {
+@@ -563,6 +592,14 @@ typedef struct rb_thread_struct {
      int to_kill;
      int priority;
  
@@ -3831,7 +3981,7 @@ index 21c9aae..dd89847 100644
      native_thread_data_t native_thread_data;
      void *blocking_region_buffer;
  
-@@ -630,24 +668,9 @@ typedef struct rb_thread_struct {
+@@ -630,24 +667,9 @@ typedef struct rb_thread_struct {
      } machine;
      int mark_stack_len;
  
@@ -3856,7 +4006,7 @@ index 21c9aae..dd89847 100644
  #ifdef USE_SIGALTSTACK
      void *altstack;
  #endif
-@@ -677,7 +700,8 @@ VALUE rb_iseq_new(NODE*, VALUE, VALUE, VALUE, VALUE, enum iseq_type);
+@@ -677,7 +699,8 @@ VALUE rb_iseq_new(NODE*, VALUE, VALUE, VALUE, VALUE, enum iseq_type);
  VALUE rb_iseq_new_top(NODE *node, VALUE name, VALUE path, VALUE absolute_path, VALUE parent);
  VALUE rb_iseq_new_main(NODE *node, VALUE path, VALUE absolute_path);
  VALUE rb_iseq_new_with_bopt(NODE*, VALUE, VALUE, VALUE, VALUE, VALUE, enum iseq_type, VALUE);
@@ -3866,7 +4016,7 @@ index 21c9aae..dd89847 100644
  
  /* src -> iseq */
  VALUE rb_iseq_compile(VALUE src, VALUE file, VALUE line);
-@@ -685,6 +709,7 @@ VALUE rb_iseq_compile_on_base(VALUE src, VALUE file, VALUE line, rb_block_t *bas
+@@ -685,6 +708,7 @@ VALUE rb_iseq_compile_on_base(VALUE src, VALUE file, VALUE line, rb_block_t *bas
  VALUE rb_iseq_compile_with_option(VALUE src, VALUE file, VALUE absolute_path, VALUE line, rb_block_t *base_block, VALUE opt);
  
  VALUE rb_iseq_disasm(VALUE self);
@@ -3874,6 +4024,20 @@ index 21c9aae..dd89847 100644
  int rb_iseq_disasm_insn(VALUE str, VALUE *iseqval, size_t pos, rb_iseq_t *iseq, VALUE child);
  const char *ruby_node_name(int node);
  
+@@ -771,6 +795,13 @@ enum vm_special_object_type {
+ 
+ #define VM_FRAME_TYPE(cfp) ((cfp)->flag & VM_FRAME_MAGIC_MASK)
+ 
++#define VM_FRAME_TRACE_RETURN 0x01  /* Call trace hook on return. */
++#define VM_FRAME_TRACE_OFF    0x02  /* Turn of event hook tracing in this
++				       frame and any frames created from
++				       this one. */
++#define VM_FRAME_TRACE_OFF_1  0x04  /* Turn of event hook tracing in this
++				       frame only. */
++
+ /* other frame flag */
+ #define VM_FRAME_FLAG_PASSED  0x0100
+ #define VM_FRAME_FLAG_FINISH  0x0200
 diff --git a/vm_eval.c b/vm_eval.c
 index e55841d..d9345b8 100644
 --- a/vm_eval.c
@@ -4042,10 +4206,29 @@ index 3de601f..6b677d5 100644
  #if VMDEBUG > 0
  #define debugs printf
 diff --git a/vm_insnhelper.c b/vm_insnhelper.c
-index cceefdb..c6ce5d0 100644
+index cceefdb..0098240 100644
 --- a/vm_insnhelper.c
 +++ b/vm_insnhelper.c
-@@ -1476,27 +1476,32 @@ vm_call_cfunc_with_frame(rb_thread_t *th, rb_control_frame_t *reg_cfp, rb_call_i
+@@ -45,6 +45,10 @@ vm_push_frame(rb_thread_t *th,
+ {
+     rb_control_frame_t *const cfp = th->cfp - 1;
+     int i;
++    short int trace_disable = 0;
++
++    if (type != VM_FRAME_MAGIC_TOP)
++      trace_disable = th->cfp->trace_disable;
+ 
+     /* check stack overflow */
+     CHECK_VM_STACK_OVERFLOW0(cfp, sp, local_size + (int)stack_max);
+@@ -75,6 +79,7 @@ vm_push_frame(rb_thread_t *th,
+     cfp->block_iseq = 0;
+     cfp->proc = 0;
+     cfp->me = me;
++    cfp->trace_disable = trace_disable & VM_FRAME_TRACE_OFF;
+     if (klass) {
+ 	cfp->klass = klass;
+     }
+@@ -1476,27 +1481,32 @@ vm_call_cfunc_with_frame(rb_thread_t *th, rb_control_frame_t *reg_cfp, rb_call_i
      rb_block_t *blockptr = ci->blockptr;
      int argc = ci->argc;
  
@@ -4099,9 +4282,18 @@ index 80a00ee..6c4082c 100644
  
  /* architecture independent, affects generated code */
 diff --git a/vm_trace.c b/vm_trace.c
-index 2047d5a..1c2c559 100644
+index 2047d5a..41ac4ce 100644
 --- a/vm_trace.c
 +++ b/vm_trace.c
+@@ -10,7 +10,7 @@
+ **********************************************************************/
+ 
+ /*
+- * This file incldue two parts:
++ * This file includes two parts:
+  *
+  * (1) set_trace_func internal mechanisms
+  *     and C level API
 @@ -29,6 +29,10 @@
  #include "vm_core.h"
  #include "eval_intern.h"
@@ -4113,7 +4305,27 @@ index 2047d5a..1c2c559 100644
  /* (1) trace mechanisms */
  
  typedef struct rb_event_hook_struct {
-@@ -565,6 +569,7 @@ static const char *
+@@ -256,6 +260,19 @@ exec_hooks_body(rb_thread_t *th, rb_hook_list_t *list, const rb_trace_arg_t *tra
+ {
+     rb_event_hook_t *hook;
+ 
++    if (UNLIKELY(th->cfp->trace_disable)) {
++	if (! (UNLIKELY(th->cfp->trace_disable & VM_FRAME_TRACE_RETURN) &&
++	       (trace_arg->event &
++		(RUBY_EVENT_C_RETURN |
++		 RUBY_EVENT_RETURN |
++		 RUBY_EVENT_END |
++		 RUBY_EVENT_RAISE |
++		 RUBY_EVENT_BRKPT |
++		 RUBY_EVENT_B_RETURN |
++		 RUBY_EVENT_THREAD_END))) )
++	    return;
++    }
++
+     for (hook = list->hooks; hook; hook = hook->next) {
+ 	if (!(hook->hook_flags & RUBY_EVENT_HOOK_FLAG_DELETED) && (trace_arg->event & hook->events)) {
+ 	    if (!(hook->hook_flags & RUBY_EVENT_HOOK_FLAG_RAW_ARG)) {
+@@ -565,6 +582,7 @@ static const char *
  get_event_name(rb_event_flag_t event)
  {
      switch (event) {
@@ -4121,7 +4333,7 @@ index 2047d5a..1c2c559 100644
        case RUBY_EVENT_LINE:     return "line";
        case RUBY_EVENT_CLASS:    return "class";
        case RUBY_EVENT_END:      return "end";
-@@ -586,6 +591,7 @@ get_event_id(rb_event_flag_t event)
+@@ -586,6 +604,7 @@ get_event_id(rb_event_flag_t event)
      switch (event) {
  #define C(name, NAME) case RUBY_EVENT_##NAME: CONST_ID(id, #name); return id;
  	C(line, LINE);
@@ -4129,7 +4341,7 @@ index 2047d5a..1c2c559 100644
  	C(class, CLASS);
  	C(end, END);
  	C(call, CALL);
-@@ -688,6 +694,7 @@ symbol2event_flag(VALUE v)
+@@ -688,6 +707,7 @@ symbol2event_flag(VALUE v)
      VALUE sym = rb_convert_type(v, T_SYMBOL, "Symbol", "to_sym");
  
  #define C(name, NAME) CONST_ID(id, #name); if (sym == ID2SYM(id)) return RUBY_EVENT_##NAME
@@ -4137,7 +4349,7 @@ index 2047d5a..1c2c559 100644
      C(line, LINE);
      C(class, CLASS);
      C(end, END);
-@@ -973,6 +980,22 @@ tracepoint_attr_self(VALUE tpval)
+@@ -973,6 +993,22 @@ tracepoint_attr_self(VALUE tpval)
  }
  
  /*
@@ -4160,7 +4372,19 @@ index 2047d5a..1c2c559 100644
   *  Return value from +:return+, +c_return+, and +b_return+ event
   */
  static VALUE
-@@ -1256,6 +1279,62 @@ tracepoint_new_s(int argc, VALUE *argv, VALUE self)
+@@ -1027,6 +1063,11 @@ rb_tracepoint_disable(VALUE tpval)
+ {
+     rb_tp_t *tp;
+ 
++    /* Set to make sure we don't trace ourselves.
++       Really, it's just the c-return that would get traced */
++    rb_thread_t *th = GET_THREAD();
++    th->cfp->trace_disable = VM_FRAME_TRACE_OFF_1;
++
+     tp = tpptr(tpval);
+ 
+     if (tp->target_th) {
+@@ -1256,6 +1297,62 @@ tracepoint_new_s(int argc, VALUE *argv, VALUE self)
  }
  
  static VALUE
@@ -4223,7 +4447,7 @@ index 2047d5a..1c2c559 100644
  tracepoint_trace_s(int argc, VALUE *argv, VALUE self)
  {
      VALUE trace = tracepoint_new_s(argc, argv, self);
-@@ -1291,6 +1370,7 @@ tracepoint_inspect(VALUE self)
+@@ -1291,6 +1388,7 @@ tracepoint_inspect(VALUE self)
  				  FIX2INT(rb_tracearg_lineno(trace_arg)),
  				  sym);
  	    }
@@ -4231,7 +4455,7 @@ index 2047d5a..1c2c559 100644
  	  case RUBY_EVENT_CALL:
  	  case RUBY_EVENT_C_CALL:
  	  case RUBY_EVENT_RETURN:
-@@ -1395,6 +1475,9 @@ Init_vm_trace(void)
+@@ -1395,6 +1493,9 @@ Init_vm_trace(void)
       */
      rb_define_singleton_method(rb_cTracePoint, "trace", tracepoint_trace_s, -1);
  
@@ -4241,7 +4465,7 @@ index 2047d5a..1c2c559 100644
      rb_define_method(rb_cTracePoint, "enable", tracepoint_enable_m, 0);
      rb_define_method(rb_cTracePoint, "disable", tracepoint_disable_m, 0);
      rb_define_method(rb_cTracePoint, "enabled?", rb_tracepoint_enabled_p, 0);
-@@ -1411,6 +1494,8 @@ Init_vm_trace(void)
+@@ -1411,6 +1512,8 @@ Init_vm_trace(void)
      rb_define_method(rb_cTracePoint, "return_value", tracepoint_attr_return_value, 0);
      rb_define_method(rb_cTracePoint, "raised_exception", tracepoint_attr_raised_exception, 0);
  

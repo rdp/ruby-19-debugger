@@ -1,8 +1,29 @@
 Change who should get bug reports. We don't want Ruby folks to be bothered with our mistakes.
 
+diff --git a/error.c b/error.c
+index 44f0459..c6dead7 100644
+--- a/error.c
++++ b/error.c
+@@ -45,14 +45,13 @@ extern const char ruby_description[];
+
+ static const char REPORTBUG_MSG[] =
+ 	"[NOTE]\n" \
+-	"You may have encountered a bug in the Ruby interpreter" \
+-	" or extension libraries.\n" \
++	"You may have encountered a bug in Rocky's debugger extensions,\n" \
++	"the Ruby interpreter, or extension libraries.\n" \
+ 	"Bug reports are welcome.\n" \
+ 	""
+ #if defined __APPLE__
+ 	"Don't forget to include the above Crash Report log file.\n"
+ #endif
+-	"For details: http://www.ruby-lang.org/bugreport.html\n\n" \
+     ;
+
+ static const char *
 diff --git a/test/debugger-ext/test-000-error.sh b/test/debugger-ext/test-000-error.sh
 new file mode 100755
-index 0000000..9b9f6f1
+index 0000000..99a6e7b
 --- /dev/null
 +++ b/test/debugger-ext/test-000-error.sh
 @@ -0,0 +1,2 @@

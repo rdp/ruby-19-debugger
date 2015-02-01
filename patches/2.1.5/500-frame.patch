@@ -22,12 +22,12 @@ index cb9b47b..1b14ce2 100644
  		$(BUILTIN_TRANSOBJS) \
 diff --git a/frame.c b/frame.c
 new file mode 100644
-index 0000000..cde1012
+index 0000000..95dd97b
 --- /dev/null
 +++ b/frame.c
-@@ -0,0 +1,1071 @@
+@@ -0,0 +1,1128 @@
 +/*
-+ * Copyright (C) 2012, 2014, 2015 Rocky Bernstein
++ * Copyright (C) 2012, 2014-2015 Rocky Bernstein
 + *
 + *  Access to Ruby's rb_control_frame_t and methods for working with that.
 + *  Things like getting a binding for a control frame. In Ruby 1.9.2 this code
@@ -83,7 +83,8 @@ index 0000000..cde1012
 +/* Static forward declarations */
 +VALUE rb_frame_iseq(VALUE klass);
 +VALUE frame_prev(rb_control_frame_t *prev_cfp,
-+                 rb_thread_t *th, int n);
++		 rb_thread_t *th, int n);
++
 +static int   frame_stack_size(rb_control_frame_t *cfp,
 +			      rb_thread_t *th);
 +static VALUE rb_frame_type(VALUE klass);
@@ -423,7 +424,7 @@ index 0000000..cde1012
 +static VALUE
 +frame_equal(VALUE klass, VALUE tfval2)
 +{
-+    FRAME_SETUP_WITH_ERROR ;
++    FRAME_SETUP ;
 +
 +    {
 +	thread_frame_t *tf2;
@@ -485,11 +486,73 @@ index 0000000..cde1012
 + * threads other than the running one should be stopped while the frame
 + * variable is active.
 + */
-+static VALUE
++VALUE
 +rb_frame_valid(VALUE klass)
 +{
 +    FRAME_SETUP ;
 +    return frame_valid(tf);
++}
++
++VALUE
++rb_frame_return_stop_set(VALUE klass, VALUE boolval)
++{
++    short int boolmask = !(NIL_P(boolval) || Qfalse == boolval);
++    FRAME_SETUP_WITH_ERROR ;
++
++    if (boolmask)
++	tf->cfp->trace_disable |=  VM_FRAME_TRACE_RETURN;
++    else
++	tf->cfp->trace_disable &= ~VM_FRAME_TRACE_RETURN;
++    return boolval;
++}
++
++VALUE
++rb_frame_trace_off_set(VALUE klass, VALUE boolval)
++{
++    short int boolmask = !(NIL_P(boolval) || Qfalse == boolval);
++    FRAME_SETUP_WITH_ERROR ;
++
++    if (boolmask)
++	tf->cfp->trace_disable |=  VM_FRAME_TRACE_OFF;
++    else
++	tf->cfp->trace_disable &= ~VM_FRAME_TRACE_OFF;
++    return boolval;
++}
++
++VALUE
++rb_frame_trace_off_1_set(VALUE klass, VALUE boolval)
++{
++    short int boolmask = !(NIL_P(boolval) || Qfalse == boolval);
++    FRAME_SETUP_WITH_ERROR ;
++
++    if (boolmask)
++	tf->cfp->trace_disable |=  VM_FRAME_TRACE_OFF_1;
++    else
++	tf->cfp->trace_disable &= ~VM_FRAME_TRACE_OFF_1;
++    return boolval;
++}
++
++VALUE
++rb_frame_is_return_stop(VALUE klass)
++{
++    FRAME_SETUP_WITH_ERROR ;
++    return (tf->cfp->trace_disable & VM_FRAME_TRACE_RETURN) ?
++	Qtrue : Qfalse;
++}
++
++VALUE
++rb_frame_is_trace_off(VALUE klass)
++{
++    FRAME_SETUP_WITH_ERROR ;
++    return (tf->cfp->trace_disable & VM_FRAME_TRACE_OFF) ? Qtrue : Qfalse;
++}
++
++VALUE
++rb_frame_is_trace_off_1(VALUE klass)
++{
++    FRAME_SETUP_WITH_ERROR ;
++    return (tf->cfp->trace_disable & VM_FRAME_TRACE_OFF_1) ?
++	Qtrue : Qfalse;
 +}
 +
 +/*
@@ -925,20 +988,7 @@ index 0000000..cde1012
 +	   treat the PC of a trace location as the previous instruction.
 +	   Since we allow breakpoints on trace locations which happen *before*
 +	   the trace is executed, we want to correct locations here.
-+       */
-+	const rb_iseq_t *iseq = cfp->iseq;
-+	size_t pos = cfp->pc - iseq->iseq_encoded;
-+	VALUE insn = iseq->iseq[pos];
-+	int is_trace = strncmp(insn_name(insn), "trace", sizeof("trace")) == 0;
-+	if (is_trace) {
-+	    /* printf("At trace instruction\n"); */
-+	    pos++; /* Correct for subtraction in rb_iseq_line_no */
-+	}
-+    if (RUBY_VM_NORMAL_ISEQ_P(cfp->iseq)) {
-+	/* One thing MRI line locations do that foul us up is to
-+	   treat the PC of a trace location as the previous instruction.
-+	   Since we allow breakpoints on trace locations which happen *before*
-+	   the trace is executed, we want to correct locations here.
++	*/
 +	const rb_iseq_t *iseq = cfp->iseq;
 +	size_t pos = cfp->pc - iseq->iseq_encoded;
 +	VALUE insn = iseq->iseq[pos];
@@ -990,8 +1040,8 @@ index 0000000..cde1012
 + *
 + *  Returns the thread object for the thread frame.
 + */
-+static VALUE
-+frame_thread(VALUE klass)
++VALUE
++rb_frame_thread(VALUE klass)
 +{
 +    FRAME_SETUP ;
 +    return tf->th->self;
@@ -1082,13 +1132,20 @@ index 0000000..cde1012
 +    rb_define_method(rb_cFrame, "stack_size",   rb_frame_stack_size, 0);
 +#ifdef ROCKY_FIXED
 +    rb_define_method(rb_cFrame, "next",         rb_frame_next, 0);
-+    rb_define_singleton_method(rb_cFrame, "current", frame_s_current, 0);
 +#endif
 +
++    rb_define_method(rb_cFrame, "return_stop=",
++		     rb_frame_return_stop_set, 1);
++    rb_define_method(rb_cFrame, "return_stop?",
++		     rb_frame_is_return_stop, 0);
 +
-+    rb_define_method(rb_cFrame, "thread",     frame_thread, 0);
-+    rb_define_method(rb_cFrame, "type",       rb_frame_type, 0);
-+
++    rb_define_method(rb_cFrame, "thread",       rb_frame_thread, 0);
++    rb_define_method(rb_cFrame, "trace_off?",   rb_frame_is_trace_off, 0);
++    rb_define_method(rb_cFrame, "trace_off=",   rb_frame_trace_off_set, 1);
++    rb_define_method(rb_cFrame, "trace_off1?",  rb_frame_is_trace_off_1, 0);
++    rb_define_method(rb_cFrame, "trace_off1=",
++		     rb_frame_trace_off_1_set, 1);
++    rb_define_method(rb_cFrame, "type",         rb_frame_type, 0);
 +
 +    rb_define_method(rb_cFrame, "pc_offset=", frame_set_pc_offset, 1);
 +    rb_eFrameError = rb_define_class("FrameError", rb_eStandardError);
@@ -1413,3 +1470,85 @@ index 0000000..b330c3e
 +  end
 +
 +end
+diff --git a/vm_core.h b/vm_core.h
+index dd89847..7904cd5 100644
+--- a/vm_core.h
++++ b/vm_core.h
+@@ -470,6 +470,9 @@ typedef struct rb_control_frame_struct {
+     rb_iseq_t *block_iseq;	/* cfp[7] / block[3] */
+     VALUE proc;			/* cfp[8] / block[4] */
+     const rb_method_entry_t *me;/* cfp[9] */
++    short int trace_disable;    /* Bits to disable per-frame event tracing.
++				   See VM_FRAME_TRACE_xxx defines.
++				 */
+
+ #if VM_DEBUG_BP_CHECK
+     VALUE *bp_check;		/* cfp[10] */
+@@ -792,6 +791,13 @@ enum vm_special_object_type {
+
+ #define VM_FRAME_TYPE(cfp) ((cfp)->flag & VM_FRAME_MAGIC_MASK)
+
++#define VM_FRAME_TRACE_RETURN 0x01  /* Call trace hook on return. */
++#define VM_FRAME_TRACE_OFF    0x02  /* Turn of event hook tracing in this
++				       frame and any frames created from
++				       this one. */
++#define VM_FRAME_TRACE_OFF_1  0x04  /* Turn of event hook tracing in this
++				       frame only. */
++
+ /* other frame flag */
+ #define VM_FRAME_FLAG_PASSED  0x0100
+ #define VM_FRAME_FLAG_FINISH  0x0200
+diff --git a/test/debugger-ext/test-frame-disable.rb b/test/debugger-ext/test-frame-disable.rb
+new file mode 100644
+index 0000000..bf50412
+--- /dev/null
++++ b/test/debugger-ext/test-frame-disable.rb
+@@ -0,0 +1,48 @@
++require 'test/unit'
++
++class TestFrame < Test::Unit::TestCase
++
++    def five(a)
++        5
++    end
++    def test_frame_stop
++        @events = []
++        trace = TracePoint.new do |tp|
++            @events << tp.event
++        end
++        trace.enable
++        x = 1
++        five(10)
++        trace.disable
++        assert_equal false, @events.empty?
++        frame = RubyVM::Frame::get
++        assert_equal false, frame.trace_off?
++        # p @events
++        frame.trace_off = true
++        assert_equal true, frame.trace_off?
++        events_first = @events.dup
++        @events = []
++        trace.enable
++        x = 1
++        five(10)
++        trace.disable
++        # p @events
++        assert_equal [], @events
++        frame.trace_off1 = true
++        frame.trace_off = false
++        assert_equal true, frame.trace_off1?
++        assert_equal false, frame.trace_off?
++        trace.enable
++        x = 1
++        five(10)
++        trace.disable
++        # p @events
++        assert @events.size < events_first.size
++
++    end
++
++end
++
++# We want to double-check we didn't mess up any pointers somewhere along
++# the line.
++at_exit { GC.start  }

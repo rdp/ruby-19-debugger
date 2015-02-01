@@ -17,17 +17,7 @@ diff --git a/frame.c b/frame.c
 index 34f193f..9a0946d 100644
 --- a/frame.c
 +++ b/frame.c
-@@ -55,7 +55,8 @@ VALUE rb_eFrameError;  /* Error raised on invalid frames. */
- /* Static forward declarations */
- VALUE rb_frame_iseq(VALUE klass);
- VALUE frame_prev(rb_control_frame_t *prev_cfp,
--                 rb_thread_t *th, int n);
-+		 rb_thread_t *th, int n);
-+
- static int   frame_stack_size(rb_control_frame_t *cfp,
- 			      rb_thread_t *th);
- static VALUE rb_frame_type(VALUE klass);
-@@ -361,6 +359,49 @@ FRAME_FIELD_METHOD(flag) ;
+@@ -362,6 +360,49 @@ FRAME_FIELD_METHOD(flag) ;
 
  /*
   *  call-seq:
@@ -77,16 +67,7 @@ index 34f193f..9a0946d 100644
   *     RubyVM::Frame#binding   -> binding
   *
   *  Returns a binding for a given thread frame.
-@@ -897,7 +941,7 @@ rb_frame_source_location(VALUE klass)
- 	   treat the PC of a trace location as the previous instruction.
- 	   Since we allow breakpoints on trace locations which happen *before*
- 	   the trace is executed, we want to correct locations here.
--       */
-+	*/
- 	const rb_iseq_t *iseq = cfp->iseq;
- 	size_t pos = cfp->pc - iseq->iseq_encoded;
- 	VALUE insn = iseq->iseq[pos];
-@@ -1029,6 +1073,8 @@ Init_Frame(void)
+@@ -1079,6 +1123,8 @@ Init_Frame(void)
 
      rb_define_method(rb_cFrame, "valid?",       rb_frame_valid, 0);
 

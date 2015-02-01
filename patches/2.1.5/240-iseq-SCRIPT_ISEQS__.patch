@@ -313,7 +313,7 @@ index 75edb5b..851bdfe 100644
 
      /* If this instruction sequence came from eval, the string of the
         source as a String. */
-@@ -690,7 +690,8 @@ VALUE rb_iseq_new(NODE*, VALUE, VALUE, VALUE, VALUE, enum iseq_type);
+@@ -686,7 +686,8 @@ VALUE rb_iseq_new(NODE*, VALUE, VALUE, VALUE, VALUE, enum iseq_type);
  VALUE rb_iseq_new_top(NODE *node, VALUE name, VALUE path, VALUE absolute_path, VALUE parent);
  VALUE rb_iseq_new_main(NODE *node, VALUE path, VALUE absolute_path);
  VALUE rb_iseq_new_with_bopt(NODE*, VALUE, VALUE, VALUE, VALUE, VALUE, enum iseq_type, VALUE);

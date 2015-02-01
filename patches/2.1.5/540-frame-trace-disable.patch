@@ -1,0 +1,95 @@
+Adds the ability to set tracing on or off per frame.
+
+There is already a such a tracing bit that is similar which is set per
+thread, but this is a bit different.
+
+In frame tracing of this patch, subsequent frames created from a frame
+with tracing set off keeps tracing off by default.  Inside a debugger,
+one may want to turn back on tracing to implement recursive debugging.
+
+When a frame returns, the trace bit is taken from the whatever value
+was set from the previous frame's trace bit.
+
+One use of setting frame tracing off in a debugger is to make a "step
+out" (or gdb's "finish") command fast.
+
+Here is another use. In ruby-debug one can call method debugger() to
+force a call to the debugger. From the programmer's standpoint, such a
+stop mechanism straightforward and predictable. But in the debugger()
+method, one might need to do some setup and tear down before calling
+set_trace(). And that might involve calling other methods that we
+don't want to trace in. Without this patch then one has to arrange the
+call to set_trace() as the last statement of the "debugger" method.
+Or one might have some sort of mechanism to say "skip so many
+statements" after tracing is turned on. Both of these approaches is
+cumbersome and frail. With this patch the set_trace() call can
+be placed anywhere in the debugger() method anywhere after the frame
+tracing is turned off in the debugger() method.
+diff --git a/vm_insnhelper.c b/vm_insnhelper.c
+index c6ce5d0..0098240 100644
+--- a/vm_insnhelper.c
++++ b/vm_insnhelper.c
+@@ -45,6 +45,10 @@ vm_push_frame(rb_thread_t *th,
+ {
+     rb_control_frame_t *const cfp = th->cfp - 1;
+     int i;
++    short int trace_disable = 0;
++
++    if (type != VM_FRAME_MAGIC_TOP)
++      trace_disable = th->cfp->trace_disable;
+
+     /* check stack overflow */
+     CHECK_VM_STACK_OVERFLOW0(cfp, sp, local_size + (int)stack_max);
+@@ -75,6 +79,7 @@ vm_push_frame(rb_thread_t *th,
+     cfp->block_iseq = 0;
+     cfp->proc = 0;
+     cfp->me = me;
++    cfp->trace_disable = trace_disable & VM_FRAME_TRACE_OFF;
+     if (klass) {
+ 	cfp->klass = klass;
+     }
+diff --git a/vm_trace.c b/vm_trace.c
+index 1c2c559..8e8ac4b 100644
+--- a/vm_trace.c
++++ b/vm_trace.c
+@@ -10,7 +10,7 @@
+ **********************************************************************/
+
+ /*
+- * This file incldue two parts:
++ * This file includes two parts:
+  *
+  * (1) set_trace_func internal mechanisms
+  *     and C level API
+@@ -260,6 +260,19 @@ exec_hooks_body(rb_thread_t *th, rb_hook_list_t *list, const rb_trace_arg_t *tra
+ {
+     rb_event_hook_t *hook;
+
++    if (UNLIKELY(th->cfp->trace_disable)) {
++	if (! (UNLIKELY(th->cfp->trace_disable & VM_FRAME_TRACE_RETURN) &&
++	       (trace_arg->event &
++		(RUBY_EVENT_C_RETURN |
++		 RUBY_EVENT_RETURN |
++		 RUBY_EVENT_END |
++		 RUBY_EVENT_RAISE |
++		 RUBY_EVENT_BRKPT |
++		 RUBY_EVENT_B_RETURN |
++		 RUBY_EVENT_THREAD_END))) )
++	    return;
++    }
++
+     for (hook = list->hooks; hook; hook = hook->next) {
+ 	if (!(hook->hook_flags & RUBY_EVENT_HOOK_FLAG_DELETED) && (trace_arg->event & hook->events)) {
+ 	    if (!(hook->hook_flags & RUBY_EVENT_HOOK_FLAG_RAW_ARG)) {
+@@ -1050,6 +1050,11 @@ rb_tracepoint_enable(VALUE tpval)
+ {
+     rb_tp_t *tp;
+
++    /* Set to make sure we don't trace ourselves.
++       Really, it's just the c-return that would get traced */
++    rb_thread_t *th = GET_THREAD();
++    th->cfp->trace_disable = VM_FRAME_TRACE_OFF_1;
++
+     tp = tpptr(tpval);
+
+     if (tp->target_th) {

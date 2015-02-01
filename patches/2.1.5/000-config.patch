@@ -45,3 +45,16 @@ index 07076d4..c8e965c 100755
 
  versions = {}
  IO.foreach(File.join(srcdir, "version.h")) do |l|
+diff --git a/template/fake.rb.in b/template/fake.rb.in
+index c94eec3..5824974 100644
+--- a/template/fake.rb.in
++++ b/template/fake.rb.in
+@@ -13,7 +13,7 @@ class Object
+   remove_const :RUBY_DESCRIPTION if defined?(RUBY_DESCRIPTION)
+   RUBY_PLATFORM = "@arch@"
+   RUBY_VERSION = "@RUBY_PROGRAM_VERSION@"
+-  RUBY_DESCRIPTION = "ruby #{RUBY_VERSION} (@RUBY_RELEASE_DATE@) [#{RUBY_PLATFORM}]"
++  RUBY_DESCRIPTION = "ruby #{RUBY_VERSION} with debugger support (@RUBY_RELEASE_DATE@) [#{RUBY_PLATFORM}]"
+ end
+ if RUBY_PLATFORM =~ /mswin|bccwin|mingw/
+   class File
