@@ -155,6 +155,10 @@ The unit test added here uses ISEQS__ are from
 240-iseq-SCRIPT_ISEQS__.patch.  Probably the unit test here could be
 rewritten to avoid this.
 
+------------------- 250-iseq-opname.patch
+
+Return the opcode name at given offset in an isntruction sequence
+
 -------------------
 310-os-startup.patch
 

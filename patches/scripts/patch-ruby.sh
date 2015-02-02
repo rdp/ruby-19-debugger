@@ -43,7 +43,8 @@ case $patchfile in
 	    510-seq-start-insn.patch \
 	    520-frame-c-argc.patch \
 	    530-tracepoint-frame.patch \
-	    540-frame-trace-disable.patch
+	    540-frame-trace-disable.patch \
+	    550-iseq-opname.patch
 	do
 	    patch_file=${dirname}/../2.1.5/$file
 	    echo -- Applying patches in $patch_file ... | tee -a patches_applied.log
