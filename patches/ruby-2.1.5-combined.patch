@@ -318,10 +318,10 @@ index 44f0459..845ffd1 100644
  static const char *
 diff --git a/frame.c b/frame.c
 new file mode 100644
-index 0000000..00c12e5
+index 0000000..8496b0f
 --- /dev/null
 +++ b/frame.c
-@@ -0,0 +1,1175 @@
+@@ -0,0 +1,1213 @@
 +/*
 + * Copyright (C) 2012, 2014-2015 Rocky Bernstein
 + *
@@ -552,6 +552,66 @@ index 0000000..00c12e5
 +    /* handled by THREAD_FRAME_FP_METHOD macro;  */
 +}
 +#endif
++
++
++/*
++ *  call-seq:
++ *     RubyVM::Frame#getlocal(index) => VALUE
++ *
++ * Returns the local variable at the given index
++ */
++VALUE
++rb_frame_getlocal(VALUE klass, VALUE index)
++{
++    VALUE *ep;
++    FRAME_SETUP_WITH_ERROR ;
++
++    if (!FIXNUM_P(index)) {
++	rb_raise(rb_eTypeError, "integer argument expected");
++    }
++
++    ep = tf->cfp->ep;
++
++#ifdef GETLOCAL_LEVEL
++    for (i = 0; i < lev; i++) {
++	ep = GET_PREV_EP(ep);
++    }
++#endif
++
++    return *(ep - FIX2INT(index));
++
++}
++
++/*
++ *  call-seq:
++ *     RubyVM::Frame#getlocal(index) => VALUE
++ *
++ * Sets the local variable at the given index
++ */
++VALUE
++rb_frame_setlocal(VALUE klass, VALUE index, VALUE val)
++{
++    VALUE *ep;
++    VALUE oldval;
++    FRAME_SETUP_WITH_ERROR ;
++
++    if (!FIXNUM_P(index)) {
++	rb_raise(rb_eTypeError, "integer argument expected");
++    }
++
++    ep = tf->cfp->ep;
++
++#ifdef GETLOCAL_LEVEL
++    for (i = 0; i < lev; i++) {
++	ep = GET_PREV_EP(ep);
++    }
++#endif
++
++    oldval = rb_frame_getlocal(klass, index);
++    *(ep - FIX2INT(index)) = val;
++    return oldval;
++}
++
 +/*
 + *  call-seq:
 + *     RubyVM::Frame#sp(n)  -> object
@@ -644,17 +704,23 @@ index 0000000..00c12e5
 +VALUE
 +frame_set_pc_offset(VALUE klass, VALUE offset_val)
 +{
-+    int offset;
 +    FRAME_SETUP_WITH_ERROR ;
 +
-+    if (!FIXNUM_P(offset_val)) {
-+	rb_raise(rb_eTypeError, "integer argument expected");
-+    } else {
-+        offset = FIX2INT(offset_val);
++    if (FIXNUM_P(offset_val)) {
++        int offset = FIX2INT(offset_val);
++	if (offset < 0) {
++	    rb_raise(rb_eArgError,
++		     "integer value should be greater than 0");
++	}
 +	if (RUBY_VM_NORMAL_ISEQ_P(tf->cfp->iseq) &&
 +	    (tf->cfp->pc != 0 && tf->cfp->iseq != 0)) {
 +            tf->cfp->pc = tf->cfp->iseq->iseq_encoded + offset;
++	} else {
++	    rb_raise(rb_eArgError,
++		     "frame doesn't have an instruction sequence");
 +	}
++    } else {
++	rb_raise(rb_eTypeError, "integer argument expected");
 +    }
 +    return Qtrue;
 +}
@@ -1104,42 +1170,6 @@ index 0000000..00c12e5
 +FRAME_FIELD_METHOD(proc) ;
 +FRAME_FIELD_METHOD(self) ;
 +
-+#ifdef ROCKY_FIXED
-+/*
-+ *  call-seq:
-+ *     RubyVM::Frame::current  -> frame_object
-+ *
-+ *  Returns a Frame object for the currently executing thread.
-+ *  Same as: RubyVM::Frame.new(Thread::current)
-+ */
-+static VALUE
-+frame_s_current(VALUE klass)
-+{
-+    thread_frame_t *tf = frame_t_alloc(klass);
-+    rb_thread_t *th = ruby_current_thread;
-+    rb_control_frame_t *start_cfp = RUBY_VM_END_CONTROL_FRAME(th);
-+
-+    /*                <- start_cfp (end control frame)
-+     *  top frame (dummy)
-+     *  top frame (dummy)
-+     *  top frame     <- start_cfp
-+     *  top frame
-+     *  ...
-+     *  2nd frame     <- lev:0
-+     *  current frame <- th->cfp
-+     */
-+
-+    start_cfp =
-+      RUBY_VM_NEXT_CONTROL_FRAME(
-+	  RUBY_VM_NEXT_CONTROL_FRAME(start_cfp)); /* skip top frames */
-+
-+    tf->th  = th;
-+    tf->cfp = start_cfp;
-+    COPY_SIGNATURE(tf, tf->cfp);
-+    return Data_Wrap_Struct(klass, frame_mark, tf_free, tf);
-+}
-+#endif
-+
 +/*
 + *  call-seq:
 + *     RubyVM::Frame::get(thread)     -> RubyVM::Frame object
@@ -1281,7 +1311,11 @@ index 0000000..00c12e5
 +		&& VM_FRAME_MAGIC_EVAL == VM_FRAME_TYPE(tf->cfp) );
 +
 +    if ( is_eval ) {
-+	/* Try to pick up string from stack. */
++	/* Try to pick up string from as the first
++	   a parameter on the stack. Magic number 2 is there
++	   because there always are two other entries on the stack
++	   for these frames.
++	*/
 +	VALUE prev = frame_prev(tf->cfp, tf->th, 1);
 +	thread_frame_t *prev_tf;
 +	Data_Get_Struct(prev, thread_frame_t, prev_tf);
@@ -1324,15 +1358,17 @@ index 0000000..00c12e5
 +	  cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(cfp) ) ;
 +
 +    if (RUBY_VM_NORMAL_ISEQ_P(cfp->iseq)) {
-+	/* One thing MRI line locations do that foul us up is to
-+	   treat the PC of a trace location as the previous instruction.
-+	   Since we allow breakpoints on trace locations which happen *before*
-+	   the trace is executed, we want to correct locations here.
++	/* One thing MRI line locations do that foul us up is to treat
++	   the PC of a trace location as the previous instruction.
++	   Since we allow breakpoints on trace locations which happen
++	   *before* the trace is executed, we want to correct
++	   locations here.
 +	*/
 +	const rb_iseq_t *iseq = cfp->iseq;
 +	size_t pos = cfp->pc - iseq->iseq_encoded;
 +	VALUE insn = iseq->iseq[pos];
-+	int is_trace = strncmp(insn_name(insn), "trace", sizeof("trace")) == 0;
++	int is_trace = strncmp(insn_name(insn), "trace", sizeof("trace"))
++	    == 0;
 +	if (is_trace) {
 +	    /* printf("At trace instruction\n"); */
 +	    pos++; /* Correct for subtraction in rb_iseq_line_no */
@@ -1463,6 +1499,8 @@ index 0000000..00c12e5
 +		     frame_source_container, 0);
 +    rb_define_method(rb_cFrame, "source_location", rb_frame_source_location, 0);
 +
++    rb_define_method(rb_cFrame, "getlocal",     rb_frame_getlocal, 1);
++    rb_define_method(rb_cFrame, "setlocal",     rb_frame_getlocal, 2);
 +    /* sp[] and sp[]= would be neater, but that would require making sp an
 +       object which I am not sure I want to do.
 +     */
@@ -1587,7 +1625,7 @@ index 7f0a945..544dcfe 100644
  static int
  insn_ret_num(VALUE insn)
 diff --git a/iseq.c b/iseq.c
-index b700c6e..24d2cfd 100644
+index b700c6e..45d4134 100644
 --- a/iseq.c
 +++ b/iseq.c
 @@ -28,6 +28,39 @@ VALUE rb_cISeq;
@@ -2188,7 +2226,7 @@ index b700c6e..24d2cfd 100644
   *  Returns the instruction sequence containing the given proc or method.
   *
   *  For example, using irb:
-@@ -2273,15 +2637,277 @@ rb_iseq_line_trace_specify(VALUE iseqval, VALUE pos, VALUE set)
+@@ -2273,15 +2637,300 @@ rb_iseq_line_trace_specify(VALUE iseqval, VALUE pos, VALUE set)
   *  you see.
   */
  
@@ -2448,6 +2486,29 @@ index b700c6e..24d2cfd 100644
 +    return Qnil;
 +}
 +
++/*
++ * call-seq:
++ *     RubyVM::InstructionSequence#op_at(offset) -> String
++ *
++ * Returns the opcode name, a String, at the given offset
++ */
++VALUE rb_iseq_op_at(VALUE klass, VALUE offset)
++{
++    rb_iseq_t *iseq;
++
++    GetISeqPtr(klass, iseq);
++
++    if (!FIXNUM_P(offset))
++      rb_raise(rb_eTypeError, "type mismatch: %s given, Fixnum expected",
++	       rb_class2name(CLASS_OF(offset)));
++    if (FIX2INT(offset) >= 0) {
++      size_t pos = FIX2INT(offset);
++      VALUE insn = iseq->iseq[pos];
++      return rb_str_new2(insn_name(insn));
++    }
++    rb_raise(rb_eArgError, "value should be greater than 0");
++}
++
  void
  Init_ISeq(void)
  {
@@ -2466,7 +2527,7 @@ index b700c6e..24d2cfd 100644
      rb_define_method(rb_cISeq, "to_a", iseq_to_a, 0);
      rb_define_method(rb_cISeq, "eval", iseq_eval, 0);
  
-@@ -2292,7 +2918,7 @@ Init_ISeq(void)
+@@ -2292,7 +2941,7 @@ Init_ISeq(void)
      rb_define_method(rb_cISeq, "base_label", rb_iseq_base_label, 0);
      rb_define_method(rb_cISeq, "first_lineno", rb_iseq_first_lineno, 0);
  
@@ -2475,7 +2536,7 @@ index b700c6e..24d2cfd 100644
      /* Now, it is experimental. No discussions, no tests. */
      /* They can be used from C level. Please give us feedback. */
      rb_define_method(rb_cISeq, "line_trace_all", rb_iseq_line_trace_all, 0);
-@@ -2319,4 +2945,34 @@ Init_ISeq(void)
+@@ -2319,4 +2968,35 @@ Init_ISeq(void)
      rb_define_singleton_method(rb_cISeq, "disasm", iseq_s_disasm, 1);
      rb_define_singleton_method(rb_cISeq, "disassemble", iseq_s_disasm, 1);
      rb_define_singleton_method(rb_cISeq, "of", iseq_s_of, 1);
@@ -2500,6 +2561,7 @@ index b700c6e..24d2cfd 100644
 +    rb_define_method(rb_cISeq, "local_table_size", rb_iseq_local_table_size, 0) ;
 +    rb_define_method(rb_cISeq, "offset2lines",     iseq_offset2lines, 1) ;
 +    rb_define_method(rb_cISeq, "offsetlines",      iseq_offsetlines, 0) ;
++    rb_define_method(rb_cISeq, "op_at",            rb_iseq_op_at, 1) ;
 +    rb_define_method(rb_cISeq, "parent",           rb_iseq_parent, 0) ;
 +    rb_define_method(rb_cISeq, "orig",             rb_iseq_orig, 0) ;
 +    rb_define_method(rb_cISeq, "self",             rb_iseq_self, 0) ;
@@ -3051,10 +3113,10 @@ index 0000000..bf50412
 +at_exit { GC.start  }
 diff --git a/test/debugger-ext/test-frame.rb b/test/debugger-ext/test-frame.rb
 new file mode 100644
-index 0000000..026e212
+index 0000000..3fef80b
 --- /dev/null
 +++ b/test/debugger-ext/test-frame.rb
-@@ -0,0 +1,152 @@
+@@ -0,0 +1,153 @@
 +require 'test/unit'
 +
 +class TestFrame < Test::Unit::TestCase
@@ -3144,6 +3206,7 @@ index 0000000..026e212
 +
 +        tf_prev = tf.prev
 +        assert(tf_prev.pc_offset > 0, "Should be valid PC offset for prev")
++        assert_equal('trace', tf_prev.iseq.op_at(tf_prev.pc_offset))
 +
 +        # 1.times creates a C frame.
 +        1.times do
