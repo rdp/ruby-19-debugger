@@ -23,5 +23,6 @@ if [[ $(pwd) == ${BUILDDIR}/ruby-2.1.5 ]]; then
 	chmod +x test/debugger-ext/testit.sh
 	git commit -m'For combined patches'
 	PAGER=cat git diff HEAD^ > $CODE_DIR/../ruby-2.1.5-combined-next.patch
+	diff -b -u $CODE_DIR/../ruby-2.1.5-combined{,-next}.patch
     fi
 fi

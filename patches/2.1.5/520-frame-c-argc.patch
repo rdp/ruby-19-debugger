@@ -67,7 +67,7 @@ index 34f193f..9a0946d 100644
   *     RubyVM::Frame#binding   -> binding
   *
   *  Returns a binding for a given thread frame.
-@@ -1080,6 +1124,8 @@ Init_Frame(void)
+@@ -1083,6 +1127,8 @@ Init_Frame(void)
 
      rb_define_method(rb_cFrame, "valid?",       rb_frame_valid, 0);
 
@@ -111,16 +111,7 @@ diff --git a/test/debugger-ext/test-frame.rb b/test/debugger-ext/test-frame.rb
 index 288dba4..aa1b42f 100644
 --- a/test/debugger-ext/test-frame.rb
 +++ b/test/debugger-ext/test-frame.rb
-@@ -14,7 +14,7 @@ class TestFrame < Test::Unit::TestCase
-             assert METHOD_TYPES.member?(tf.type)
-             assert_equal(['file', cl.path], tf.source_container[0...-1],
-                          "location matching caller_locations at depth #{i}")
--            # tf.source_location can be less than cl.lineno when
-+            # source_location can be less than cl.lineno when cl_lineno
-             # we are stopped at a trace instruction.
-             # FIXME: either figure out how to remove the magic call stack numbers or
-             # change the test to be unconditionally <=
-@@ -77,9 +76,8 @@ class TestFrame < Test::Unit::TestCase
+@@ -83,9 +82,8 @@ class TestFrame < Test::Unit::TestCase
          assert(pc2 > pc1, 'PC offset should have changed (for the greater)')
          assert_equal('test_fields', tf.method)
          assert_equal(self, tf.self)
@@ -132,7 +123,7 @@ index 288dba4..aa1b42f 100644
 
          # assert_raises IndexError do
          #   x = tf.lfp(tf.iseq.local_size+1)
-@@ -98,21 +96,19 @@ class TestFrame < Test::Unit::TestCase
+@@ -104,21 +102,19 @@ class TestFrame < Test::Unit::TestCase
              assert_equal('CFUNC', tf.prev.type)
              assert_equal('times', tf.prev.method)
              assert_equal(self, tf.self)
@@ -160,7 +151,7 @@ index 288dba4..aa1b42f 100644
          end
 
          x  = lambda do |x,y|
-@@ -120,9 +116,8 @@ class TestFrame < Test::Unit::TestCase
+@@ -126,9 +122,8 @@ class TestFrame < Test::Unit::TestCase
              assert_equal(nil, frame.method)
              assert_equal('LAMBDA', frame.type)
              assert_equal(x, tf.self)

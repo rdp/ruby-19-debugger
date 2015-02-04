@@ -5,7 +5,7 @@ new file mode 100644
 index 0000000..1103040
 --- /dev/null
 +++ b/test/debugger-ext/test-tracepoint.rb
-@@ -0,0 +1,24 @@
+@@ -0,0 +1,45 @@
 +require 'test/unit'
 +
 +class TestTracePoint < Test::Unit::TestCase
@@ -14,20 +14,41 @@ index 0000000..1103040
 +        5
 +    end
 +    def test_basic
++        @event = []
 +        trace = TracePoint.new do |tp|
 +            frame = tp.frame
-+            assert_equal(tp.lineno, frame.source_location[0])
++            assert (frame.source_location[0] >= tp.lineno)
++            assert (frame.source_location[0] - tp.lineno) <= 1
++            @event << tp.event
 +        end
 +        assert_equal([:b_call, :b_return, :brkpt, :c_call, :c_return,
 +                      :call, :class, :end, :line, :raise, :return,
 +                      :thread_begin, :thread_end], trace.event_mask)
-+        mask = [:b_call, :b_return, :line]
++
++        mask = [:line, :call, :return, :b_call, :b_return]
++        trace.event_mask_set *mask
++        @event = []
++        trace.enable
++        1.times do
++            x = 1
++            five(10)
++        end
++        trace.disable
++        mask.each do |m|
++            assert @event.any?{|e| e == m}
++        end
++
++        mask = [:line]
 +        trace.event_mask_set *mask
 +        assert_equal(mask, trace.event_mask)
++        @event = []
 +        trace.enable
-+        x = 1
-+        five(10)
++        1.times do
++            x = 1
++            five(10)
++        end
 +        trace.disable
++        assert @event.all?{|e| :line == e}
 +    end
 +end
 diff --git a/vm_trace.c b/../ruby-2.1.5-debugger/vm_trace.c

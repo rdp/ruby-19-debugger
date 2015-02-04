@@ -247,3 +247,34 @@ pops so that inside the hook you see that frame on the stack.
 530-tracepoint-frame.patch
 
 Add "frame" method to tracepoint. Requires frame patch to be installed first.
+
+-------------------
+540-frame-trace-disable.patch
+
+Adds the ability to set tracing on or off per frame.
+
+There is already a such a tracing bit that is similar which is set per
+thread, but this is a bit different.
+
+In frame tracing of this patch, subsequent frames created from a frame
+with tracing set off keeps tracing off by default.  Inside a debugger,
+one may want to turn back on tracing to implement recursive debugging.
+
+When a frame returns, the trace bit is taken from the whatever value
+was set from the previous frame's trace bit.
+
+One use of setting frame tracing off in a debugger is to make a "step
+out" (or gdb's "finish") command fast.
+
+Here is another use. In ruby-debug one can call method debugger() to
+force a call to the debugger. From the programmer's standpoint, such a
+stop mechanism straightforward and predictable. But in the debugger()
+method, one might need to do some setup and tear down before calling
+set_trace(). And that might involve calling other methods that we
+don't want to trace in. Without this patch then one has to arrange the
+call to set_trace() as the last statement of the "debugger" method.
+Or one might have some sort of mechanism to say "skip so many
+statements" after tracing is turned on. Both of these approaches is
+cumbersome and frail. With this patch the set_trace() call can
+be placed anywhere in the debugger() method anywhere after the frame
+tracing is turned off in the debugger() method.
