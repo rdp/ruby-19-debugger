@@ -1,0 +1,59 @@
+Show that this is a patched ruby with threadframe and debugger support
+
+diff --git a/template/fake.rb.in b/template/fake.rb.in
+index 6f5de50..fe3fe56 100644
+--- a/template/fake.rb.in
++++ b/template/fake.rb.in
+@@ -15,7 +15,7 @@ class Object
+   RUBY_PLATFORM = "@arch@"
+   RUBY_VERSION = "@RUBY_PROGRAM_VERSION@"
+   RUBY_RELEASE_DATE = "@RUBY_RELEASE_DATE@"
+-  RUBY_DESCRIPTION = "ruby #{RUBY_VERSION} (#{RUBY_RELEASE_DATE}) [#{RUBY_PLATFORM}]"
++  RUBY_DESCRIPTION = "ruby #{RUBY_VERSION} with debugger support (#{RUBY_RELEASE_DATE}) [#{RUBY_PLATFORM}]"
+ end
+ builddir = File.dirname(__FILE__)
+ top_srcdir = "@abs_top_srcdir@"
+diff --git a/test/debugger-ext/test-000-config.rb b/test/debugger-ext/test-000-config.rb
+new file mode 100644
+index 0000000..1a8d973
+--- /dev/null
++++ b/test/debugger-ext/test-000-config.rb
+@@ -0,0 +1,13 @@
++#!/usr/bin/env ruby
++require 'test/unit'
++
++class TestAppUtil < Test::Unit::TestCase
++  def test_basic
++      output = `../../ruby --version`
++      assert_match(/with debugger support/, output,
++                   'Banner to reflect debugger support')
++      cmd=%q(../../miniruby -e 'load "../../rbconfig.rb"; include RbConfig; puts CONFIG["rb-threadframe"]')
++      output = `#{cmd}`
++      assert_equal('0.3', output.chomp)
++  end
++end
+diff --git a/tool/mkconfig.rb b/tool/mkconfig.rb
+index 3da5758..9caad9f 100755
+--- a/tool/mkconfig.rb
++++ b/tool/mkconfig.rb
+@@ -179,6 +179,7 @@ ARCH
+ print "  universal = #{universal}\n" if universal
+ print "  CONFIG = {}\n"
+ print "  CONFIG[\"DESTDIR\"] = DESTDIR\n"
++print "  CONFIG[\"rb-threadframe\"] = \"0.3\"\n"
+
+ versions = {}
+ IO.foreach(File.join(srcdir, "version.h")) do |l|
+diff --git a/version.h b/version.h
+index eacc75f..4370693 100644
+--- a/version.h
++++ b/version.h
+@@ -42,7 +42,7 @@
+ # define RUBY_DESCRIPTION	    \
+     "ruby "RUBY_VERSION		    \
+     RUBY_PATCHLEVEL_STR		    \
+-    " ("RUBY_RELEASE_DATE	    \
++    " with debugger support ("RUBY_RELEASE_DATE	    \
+     RUBY_REVISION_STR") "	    \
+     "["RUBY_PLATFORM"]"
+ # define RUBY_COPYRIGHT		    \

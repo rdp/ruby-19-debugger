@@ -25,7 +25,11 @@ new file mode 100644
 index 0000000..95dd97b
 --- /dev/null
 +++ b/frame.c
+<<<<<<< HEAD
 @@ -0,0 +1,1168 @@
+=======
+@@ -0,0 +1,1133 @@
+>>>>>>> 0ae2fcd779d10fee63f62703bfe51303514a1890
 +/*
 + * Copyright (C) 2012, 2014-2015 Rocky Bernstein
 + *
@@ -952,9 +956,11 @@ index 0000000..95dd97b
 +
 +    FRAME_SETUP_WITH_ERROR ;
 +
-+    for ( cfp = tf->cfp; cfp && !cfp->iseq && RUBYVM_CFUNC_FRAME_P(cfp);
-+	  cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(cfp) ) ;
-+
++    cfp = tf->cfp;
++    if (RUBYVM_CFUNC_FRAME_P(cfp)) {
++	return rb_ary_new3(2, rb_str_new2("binary"),
++			   LONG2FIX(cfp->me->def->body.cfunc.func));
++    }
 +
 +    if (cfp->iseq) {
 +	path = cfp->iseq->location.path;
@@ -1008,22 +1014,30 @@ index 0000000..95dd97b
 +    rb_control_frame_t *cfp;
 +    FRAME_SETUP_WITH_ERROR ;
 +
-+    /* For now, it appears like we have line numbers only when there
-+       is an instruction sequence. The heuristic that is used by
-+       vm_backtrace_each of vm.c seems to be to use the line number of
-+       the closest control frame that has an instruction sequence.
-+       FIXME: investigate whether this is always the most accurate location. If
-+       not, improve.
++    /* For C frames we use the machine address of the function as the
++       location rather than the last Ruby source-code line as YARV
++       does. At a c_return event this is still not totally accurate,
++       but it is a more little accurate than YARV. The hope is that with
++       the address you have the *ability* to track things
++       further. gdb may be useful in tracking things further such as
++       with the "info symbol" command.
 +    */
 +    for ( cfp = tf->cfp; cfp && !cfp->iseq && RUBYVM_CFUNC_FRAME_P(cfp);
 +	  cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(cfp) ) ;
 +
 +    if (RUBY_VM_NORMAL_ISEQ_P(cfp->iseq)) {
+<<<<<<< HEAD
 +	/* One thing MRI line locations do that foul us up is to treat
 +	   the PC of a trace location as the previous instruction.
 +	   Since we allow breakpoints on trace locations which happen
 +	   *before* the trace is executed, we want to correct
 +	   locations here.
+=======
++	/* One thing YARV line locations do that foul us up is to
++	   treat the PC of a trace location as the previous instruction.
++	   Since we allow breakpoints on trace locations which happen *before*
++	   the trace is executed, we want to correct locations here.
+>>>>>>> 0ae2fcd779d10fee63f62703bfe51303514a1890
 +	*/
 +	const rb_iseq_t *iseq = cfp->iseq;
 +	size_t pos = cfp->pc - iseq->iseq_encoded;
@@ -1211,7 +1225,7 @@ new file mode 100644
 index 0000000..e9a4381
 --- /dev/null
 +++ b/test/debugger-ext/test-frame.rb
-@@ -0,0 +1,156 @@
+@@ -0,0 +1,162 @@
 +require 'test/unit'
 +
 +class TestFrame < Test::Unit::TestCase
@@ -1226,18 +1240,24 @@ index 0000000..e9a4381
 +            caller_diff = caller_locations(0).size - count
 +            cl = caller_locations(i+caller_diff)[0]
 +            assert METHOD_TYPES.member?(tf.type)
-+            assert_equal(['file', cl.path], tf.source_container[0...-1],
-+                         "location matching caller_locations at depth #{i}")
-+            # tf.source_location can be less than cl.lineno when
-+            # we are stopped at a trace instruction.
-+            # FIXME: either figure out how to remove the magic call stack numbers or
-+            # change the test to be unconditionally <=
-+            if [2,4,12,16,17,20,21].member?(i)
-+                assert cl.lineno <=  tf.source_location[0],
-+                         "line number of caller_locations at depth #{i} for trace insn"
++            if tf.source_container[0] == 'binary'
++                assert_equal('CFUNC', tf.type,
++                             "only C functions have container type binary")
++                assert_equal(tf.source_container[1], tf.source_location[0])
 +            else
-+                assert_equal cl.lineno, tf.source_location[0],
-+                         "line number of caller_locations at depth #{i}"
++                assert_equal(['file', cl.path], tf.source_container[0...-1],
++                             "location matching caller_locations at depth #{i}")
++                # source_location can be less than cl.lineno when cl_lineno
++                # we are stopped at a trace instruction.
++                # FIXME: either figure out how to remove the magic call stack numbers or
++                # change the test to be unconditionally <=
++                if [2,4,12,16,17,20,21].member?(i)
++                    assert cl.lineno <=  tf.source_location[0],
++                    "line number of caller_locations at depth #{i} for trace insn"
++                else
++                    assert_equal cl.lineno, tf.source_location[0],
++                    "line number of caller_locations at depth #{i}"
++                end
 +            end
 +
 +            assert tf.valid? || tf.valid == nil

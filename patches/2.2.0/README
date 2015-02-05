@@ -26,14 +26,6 @@ likely though some hunks of the patch may be rejected.
 I have not put a lot of effort into ensuring arbitrary intermediate
 patches can be skipped.
 
-0000-extern-access.patch:
-
-vm_core.h: move fixed-length fields to front and fields that
-           vary toward the end. Not strictly necessary but makes it possible
-           for extensions to get at these fields and make debugging these structures easier
-
-Necessity: not important. Might be skipped.
-
 -------------------
 000-config.patch:
 
@@ -155,10 +147,6 @@ The unit test added here uses ISEQS__ are from
 240-iseq-SCRIPT_ISEQS__.patch.  Probably the unit test here could be
 rewritten to avoid this.
 
-------------------- 250-iseq-opname.patch
-
-Return the opcode name at given offset in an isntruction sequence
-
 -------------------
 310-os-startup.patch
 
@@ -250,7 +238,10 @@ pops so that inside the hook you see that frame on the stack.
 -------------------
 530-tracepoint-frame.patch
 
-Add "frame" method to tracepoint. Requires frame patch to be installed first.
+1. Add "frame" method to tracepoint. Requires frame patch to be installed first.
+2. Add ability to dynamically set/change tracepoint event masks
+
+These two things could be separated out into two different patches.
 
 -------------------
 540-frame-trace-disable.patch

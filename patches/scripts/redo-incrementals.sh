@@ -4,10 +4,20 @@ if [[ $0 == ${BASH_SOURCE[0]} ]] ; then
     exit 1
 fi
 # set -x
-BUILDDIR=/src/build
-RUBY_TAR_FILE=/src/archive/ruby-2.1.5.tar.gz
-PATCH_SCRIPT=$(dirname ${BASH_SOURCE[0]})/patch-ruby.sh
-cd $BUILDDIR && rm -fr ruby-2.1.5 && \
-    tar -xpf $RUBY_TAR_FILE && \
-    cd ruby-2.1.5 && $PATCH_SCRIPT 2.1.5
+BUILDDIR=${BUILDDIR:-/src/build}
+SCRIPT_DIR=$(dirname ${BASH_SOURCE[0]})
+UNTAR_SCRIPT=$SCRIPT_DIR/untar-ruby.sh
+
+if [[ -r  $UNTAR_SCRIPT ]] ; then
+    if ! source $UNTAR_SCRIPT ; then
+	return $?
+    fi
+fi
+
+if [[ -z $RUBY_DIR ]] ; then
+    echo "Untar script $UNTAR_SCRIPT should have created Ruby directory $RUBY_DIR" 2>&1
+    return 1
+fi
+RUBY_VERSION=$(echo $RUBY_SHORT | sed -e 's/^ruby-//')
+cd $RUBY_DIR && $PATCH_SCRIPT $RUBY_VERSION
 # set +x
