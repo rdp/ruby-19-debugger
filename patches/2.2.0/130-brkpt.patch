@@ -373,6 +373,20 @@ index 0000000..1556876
 +
 +# We want to double-check we didn't mess up any pointers somewhere.
 +at_exit { GC.start  }
+diff --git a/vm_core.h b/vm_core.h
+index e594569..5383551 100644
+--- a/vm_core.h
++++ b/vm_core.h
+@@ -341,6 +341,9 @@ struct rb_iseq_struct {
+
+     /* used at compile time */
+     struct iseq_compile_data *compile_data;
++
++    /* Used to set a breakpoint at a VM instruction */
++    unsigned char *breakpoints;
+
+    /* original iseq, before encoding
+ enum ruby_special_exceptions {
 diff --git a/vm_exec.h b/vm_exec.h
 index 3de601f..6b677d5 100644
 --- a/vm_exec.h
