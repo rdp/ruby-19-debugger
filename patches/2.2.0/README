@@ -1,0 +1,275 @@
+Below is a description of the patches.
+
+About the numbering used below. Numbers at a given power of ten are
+supposed to be somewhat independent. (See below for what "somewhat
+independent" means.
+
+"Somewhat" indpendent patch can be applied independent of the other
+patches at that level. So 000 and 100 and 1xx and and 2xx are somewhat
+independent.  Likewise for 210, 220, 230 or 210, 211, 212. But 225 is
+thought to be dependent on 220. Of course, if patches are skipped
+applying higher number patches may give messages about "fuzz" being
+applied to line numbers and file offsets.
+
+More on "somewhat" independent. There are two kinds of
+dependencies. Those where one feature depends on another
+feature. These should be captured by the sub-numbering scheme
+above. But there is another kind of dependence due to the patch
+mechanism which needs context and line numbers to find a patch. Here
+it may be the case that two patches are logically independent but one
+patch changes some context lines that another patch will use. This is
+captured only by the total ordering of the patch numbers. If some
+patches are skipped it is possible the patch mechanism will be able to
+handle this giving "fuzz" and "offset line" messages. Alas, more
+likely though some hunks of the patch may be rejected.
+
+I have not put a lot of effort into ensuring arbitrary intermediate
+patches can be skipped.
+
+-------------------
+000-config.patch:
+
+Show that this is a patched ruby with threadframe and debugger support
+
+-------------------
+000-error.patch:
+
+Change who should get bug reports. We don't want Ruby folks to be bothered with our mistakes.
+
+-------------------
+000-pc-modify.patch:
+
+Allows us to be able to change the PC by conditionally disabling
+USE_MACHINE_REGS which keeps the PC in a register. Note that that this
+optimization of keeping the PC in a register is only done for
+Intel-like machine architectures.
+
+-------------------
+000-testit.patch:
+
+Adds a script that helps me run the debugger-extension unit tests
+easier. Probably not needed if I understood the Ruby testing system
+better.
+
+-------------------
+001-disable-cache.patch
+
+For debugging, we probably want to disable method caching. Dunno
+
+-------------------
+130-brkpt.patch
+
+Add support for breakpoints in the VM. This allows debuggers to run at full
+speed.
+
+External routines added to RubyVM::InstructionSequence (in brkpt.c):
+  brkpt_alloc - allocate breakpoint vector
+  brkpt_set   - set a breakpoint at a given VM offset
+  brkpt_unset - unset a breakpoint
+  brkpt_get   - see if a breakpoint is set a a particlar VM offset
+  brkpt_get   - get list of breakpoints set in this instruction sequence
+
+Initial timing evidence by Mark Moseley suggests that the
+overhead is negligible.
+
+Depends on 000-pc-modify patch to allow access to pc (I think).
+
+-------------------
+210-iseq-field-access.patch
+
+Access to more of the iseq fields: argc, arg_rest, arg_block,
+offsetlines, offset2line, local_size, local_table_size, iseq_size,
+arg_simple
+
+-------------------
+215-iseq-field-access.patch
+
+More InstructionSequence methods:
+   compile_options, encoded, equal? local_iseq, local_name, parent
+
+Note: compile_options needs a further patch since it is nil'd after compilation by default.
+
+-------------------
+220-iseq-eval-source-save.patch:
+
+Adds Instruction#source method. If this instruction sequence came from
+eval(), the string of the source is returned from this method.
+
+TODO: figure out how to have this "eval_source" field filled out more
+often.
+
+-------------------
+230-iseq-top-name.patch
+
+Changes the instruction sequence name slightly for the top-most
+instruction-sequence container (ISEQ_TYPE_TOP). The name <top
+(required)> isn't very instructive and it is not unique. So we replace
+(required) with a file name. For example:
+
+ <top /tmp/l.rb> vs <top (required)>
+
+and also
+
+ <RubyVM::InstructionSequence:<compiled>> vs.
+ <RubyVM::InstructionSequence:<compiled>@<compiled>>
+
+Motivation: Instruction sequence names become important the more one
+needs to access them.  In a debugger we use instruction sequences in
+describing where to stop or in showing disassembly, so making things
+look more descriptive is helpful.
+
+------------------- 240-iseq-SCRIPT_ISEQS__.patch
+
+Adds SCRIPT_ISEQS__ and ISEQS__ and changes eval to include part of
+the eval string
+
+A debugger or similar introspection tool needs to be able to find all
+instruction sequences and access them. This patch facilitates this by
+adding the following behavior, analogous to SCRIPT_LINES__ for
+capturing source-code lines.
+
+If SCRIPT_ISEQS__ is defined and is a hash, then every time a new
+instruction sequence is added, it is accessible from SCRIPT_ISEQS__
+using the "filename" as a key.
+
+Similarly, if ISEQS__ is defined and is a hash, then every time a new
+instruction sequence is added, it is accessible from ISEQS__ using its
+iseq_name as a key.
+
+If ISEQS__ is set, we don't discard the compile options.
+
+-------------------
+245-method-arity.patch
+
+Adds Method#arity.
+
+The unit test added here uses ISEQS__ are from
+240-iseq-SCRIPT_ISEQS__.patch.  Probably the unit test here could be
+rewritten to avoid this.
+
+-------------------
+310-os-startup.patch
+
+Add RubyVM::OS_ARGV and RubyVM::OS_STARTUP_DIR to get the initial @ARGV
+and current working directory
+
+Some programs like a debugger may want a way to reliably restart the program.
+(Inside a Ruby program, one can change @ARGV and cwd)
+
+-------------------
+380-method-extra.patch
+
+Add methods alias_count, original_id, and type to Method and UnboundMethod
+
+-------------------
+390-proc-iseq.patch
+
+Adds Proc#iseq
+
+-------------------
+400-source-container-method-iseq.patch
+
+Add iseq#source_container
+
+-------------------
+410-linecache-linetable.patch
+
+-------------------
+415-linecache-child-iseqs.patch
+
+rb_child_iseqs (Ruby iseq#child_iseqs) returns and array of child instruction sequences of "iseq".
+
+This allows the Ruby gem linecache to find all of the line numbers
+which one can set a breakpoint at.  It does this by starting with
+top-level instruction sequences and traversing child instructions
+sequences found from that.
+
+Code coverage could use it to ensure all statements (lines) are
+covered.
+
+-------------------
+420-disasm-insns.patch
+
+Add more access to VM opcodes and finer control of disassembly.
+
+rb_iseq_disasm_nochildren() disassembles just the given instruction
+sequence, not any child instruction sequences (such as those of nested
+procedures).
+
+Also adds access to an instruction's length, name, operand
+types. FIXES a bug in 415 linecache-child-iseqs. We should combine
+parts of this with that.
+
+-------------------
+500-frame.patch
+
+Add RubyVM::Frame - a class for a run-time call frame object. From this we
+can get a binding, and an instruction sequence.
+
+Some care is take to ensure that the frame is still active using a
+"signature" and other checks.
+
+-------------------
+510-seq-start-insn.patch
+
+The PC when we look at a backtrace might not be at a trace instruction
+(the start of the statement). When we add a breakpoint we need to add
+it at the trace instruction. So iseq.start_insn finds this. Internally
+in C you can use rb_iseq_start_insn.
+
+-------------------
+520-frame-c-argc.patch
+
+Add support to get at run-time the number of parameters passed to a C
+function. Currently the arity (but called "argc") is stored in the
+method structure. In order for a debugger to show and access C
+function arguments, it needs to know how many were passed.
+
+Ideally I would like to see this extended for non-C calls,
+OPTIMIZED_METHOD_TYPE_SEND, and OPTIMIZED_METHOD_TYPE_CALL.
+
+This depends on frame.c (500-frame.patch) to add the argc method and
+to add to test_frame.rb. It could be split into a two parts. One part
+for the C runtime and another part for frame.c
+
+Also we move C calls/return event hook calls inside frame pushes and
+pops so that inside the hook you see that frame on the stack.
+
+-------------------
+530-tracepoint-frame.patch
+
+1. Add "frame" method to tracepoint. Requires frame patch to be installed first.
+2. Add ability to dynamically set/change tracepoint event masks
+
+These two things could be separated out into two different patches.
+
+-------------------
+540-frame-trace-disable.patch
+
+Adds the ability to set tracing on or off per frame.
+
+There is already a such a tracing bit that is similar which is set per
+thread, but this is a bit different.
+
+In frame tracing of this patch, subsequent frames created from a frame
+with tracing set off keeps tracing off by default.  Inside a debugger,
+one may want to turn back on tracing to implement recursive debugging.
+
+When a frame returns, the trace bit is taken from the whatever value
+was set from the previous frame's trace bit.
+
+One use of setting frame tracing off in a debugger is to make a "step
+out" (or gdb's "finish") command fast.
+
+Here is another use. In ruby-debug one can call method debugger() to
+force a call to the debugger. From the programmer's standpoint, such a
+stop mechanism straightforward and predictable. But in the debugger()
+method, one might need to do some setup and tear down before calling
+set_trace(). And that might involve calling other methods that we
+don't want to trace in. Without this patch then one has to arrange the
+call to set_trace() as the last statement of the "debugger" method.
+Or one might have some sort of mechanism to say "skip so many
+statements" after tracing is turned on. Both of these approaches is
+cumbersome and frail. With this patch the set_trace() call can
+be placed anywhere in the debugger() method anywhere after the frame
+tracing is turned off in the debugger() method.

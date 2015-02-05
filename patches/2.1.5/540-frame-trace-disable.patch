@@ -81,7 +81,7 @@ index 1c2c559..8e8ac4b 100644
      for (hook = list->hooks; hook; hook = hook->next) {
  	if (!(hook->hook_flags & RUBY_EVENT_HOOK_FLAG_DELETED) && (trace_arg->event & hook->events)) {
  	    if (!(hook->hook_flags & RUBY_EVENT_HOOK_FLAG_RAW_ARG)) {
-@@ -1050,6 +1050,11 @@ rb_tracepoint_enable(VALUE tpval)
+@@ -1042,6 +1042,11 @@ rb_tracepoint_enable(VALUE tpval)
  {
      rb_tp_t *tp;
 

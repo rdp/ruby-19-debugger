@@ -1,4 +1,7 @@
-Add "frame" method to tracepoint. Requires frame patch to be installed first.
+1. Add "frame" method to tracepoint. Requires frame patch to be installed first.
+2. Add ability to dynamically set/change tracepoint event masks
+
+These two things could be separated out into two different patches.
 
 diff --git a/test/debugger-ext/test-tracepoint.rb b/test/debugger-ext/test-tracepoint.rb
 new file mode 100644
@@ -97,6 +100,24 @@ index cf7fa6a..1c2c559 100644
   *  Return value from +:return+, +c_return+, and +b_return+ event
   */
  static VALUE
+@@ -997,6 +997,17 @@ tp_call_trace(VALUE tpval, rb_trace_arg_t *trace_arg)
+ {
+     rb_tp_t *tp = tpptr(tpval);
+
++    /* The check below is needed because I allow dynamically changing
++       the tracepoint event mask. I'd like to fold this test into
++       exec_hooks_precheck where the same test is done via a mask in
++       the rb_hook_list rather than in the tracepoint structure.
++       Note that because exec_hooks_precheck gets first crack, applications that
++       want to change the mask dynamically should set the initial tracepoint mask
++       to everything (which is the default), and the limit further by a call
++       to tp#event_mask_set.
++    */
++    if ((tp->events & trace_arg->event) == 0) return;
++
+     if (tp->func) {
+ 	(*tp->func)(tpval, tp->data);
+     }
 @@ -1258,6 +1279,62 @@ tracepoint_new_s(int argc, VALUE *argv, VALUE self)
  }
 

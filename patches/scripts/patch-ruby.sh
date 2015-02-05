@@ -17,7 +17,39 @@ dirname=${file%/*}
 
 patchfile=${1:-'combined'}
 case $patchfile in
-    2.1.5 | head | trunk )
+    2.2.0 | head | trunk )
+	for file in \
+	    000-config.patch \
+	    000-error.patch \
+	    000-pc-modify.patch \
+	    000-testit.patch \
+	    001-disable-cache.patch \
+	    130-brkpt.patch \
+	    210-iseq-field-access.patch \
+	    215-iseq-field-access.patch # \
+	    # 220-iseq-eval-source-save.patch \
+	    # 230-iseq-top-name.patch \
+	    # 240-iseq-SCRIPT_ISEQS__.patch \
+	    # 245-method-arity.patch \
+	    # 310-os-startup.patch \
+	    # 380-method-extra.patch \
+	    # 390-proc-iseq.patch \
+	    # 400-source-container-method-iseq.patch \
+	    # 410-linecache-linetable.patch \
+	    # 415-linecache-child-iseqs.patch \
+	    # 420-disasm-insns.patch \
+	    # 500-frame.patch \
+	    # 510-seq-start-insn.patch \
+	    # 520-frame-c-argc.patch \
+	    # 530-tracepoint-frame.patch \
+	    # 540-frame-trace-disable.patch
+	do
+	    patch_file=${dirname}/../2.2.0/$file
+	    echo -- Applying patches in $patch_file ... | tee -a patches_applied.log
+	    patch -p1 < $patch_file
+	done
+	;;
+    2.1.5 )
 	for file in \
 	    0000-extern-access.patch \
 	    000-config.patch \
