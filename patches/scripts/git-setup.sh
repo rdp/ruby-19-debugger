@@ -1,58 +1,27 @@
 #!/bin/bash
-if [[ $# != 1 ]] ; then
-    echo 2>&1 <<EOF 
-Usage:
-  $0 *ruby-tar.gz*
-
-Untar ruby source and set it up for git.
-EOF
+# Create a directory with the combined Ruby patches. Do this by:
+# 1. run the untar script to remove any old directory and untar Ruby
+# 2. run git init and commit the initial set of files
+#
+if [[ $0 == ${BASH_SOURCE[0]} ]] ; then
+    echo "This script should be *sourced* rather than run directly through bash"
     exit 1
 fi
-tar_file="$1"
-if [[ ! -r "$tar_file" ]]; then
-    echo "tar file: $tar_file does not exist"  2>&1
-    exit 2
+# set -x
+BUILDDIR=${BUILDDIR:-/src/build}
+SCRIPT_DIR=$(dirname ${BASH_SOURCE[0]})
+UNTAR_SCRIPT=$SCRIPT_DIR/untar-ruby.sh
+
+if [[ -r  $UNTAR_SCRIPT ]] ; then
+    if ! source $UNTAR_SCRIPT ; then
+	return $?
+    fi
 fi
 
-tar -xzf $tar_file || {
-    echo "Error untarring $ruby_name" 2>&1
-    exit 3
-}
-
-ruby_dir=$(basename $tar_file .tar.gz)
-rm -fr ruby_dir
-
-files="
-configure
-encdb.h
-golf_prelude.c
-id.h
-insns.inc
-insns_info.inc
-known_errors.inc
-lex.c
-miniprelude.c
-newline.c
-node_name.inc
-opt_sc.inc
-optinsn.inc
-optunifs.inc
-parse.c
-parse.h
-revision.h
-transdb.h
-vm.inc
-vmtc.inc
-"
-
-git_dir="${ruby_dir}-git"
-mv -v ${ruby_dir} ${git_dir}
-cd ${git_dir} || {
-    error >2 "Error in cd to ${git_dir}"
-    exit 4
-}
-git init .
-rm -fv $files
-git add *
-git commit -m'What we got to work with' .
-exit $?
+if [[ -z $RUBY_DIR ]] ; then
+    echo "Untar script $UNTAR_SCRIPT should have created Ruby directory $RUBY_DIR" 2>&1
+    return 1
+fi
+cd $RUBY_DIR && git init . && git add -f * && git commit -m'base' . | head
+return $?
+# set +x
