@@ -5,7 +5,7 @@ index 80eaa64..a2d67b3 100644
 @@ -623,10 +623,14 @@ assert_equal '2', %q{
    end
  }
-
+ 
 -assert_match /invalid multibyte char/, %q{
 -  STDERR.reopen(STDOUT)
 -  eval("\"\xf0".force_encoding("utf-8"))
@@ -18,7 +18,7 @@ index 80eaa64..a2d67b3 100644
 +#   STDERR.reopen(STDOUT)
 +#   eval("\"\xf0".force_encoding("utf-8"))
 +# }, '[ruby-dev:32429]'
-
+ 
  # method ! and !=
  assert_equal 'true', %q{!false}
 diff --git a/brkpt.c b/brkpt.c
@@ -266,7 +266,7 @@ index de1b671..1b14ce2 100644
 --- a/common.mk
 +++ b/common.mk
 @@ -38,6 +38,7 @@ ENC_MK        = enc.mk
-
+ 
  COMMONOBJS    = array.$(OBJEXT) \
  		bignum.$(OBJEXT) \
 +		brkpt.$(OBJEXT) \
@@ -295,12 +295,48 @@ index 3f51cac..d604f33 100644
      debugs("[new_child_iseq]< ---------------------------------------\n");
      iseq_add_mark_object(iseq, ret);
      return ret;
+diff --git a/configure b/configure
+index d0f1f68..3a638d4 100755
+--- a/configure
++++ b/configure
+@@ -22101,8 +22101,11 @@ test "$program_prefix" != NONE &&
+   ri_prefix=$program_prefix
+ 
+ ri_suffix=
+-test "$program_suffix" != NONE &&
+-  ri_suffix=$program_suffix
++if test "$program_suffix" != NONE ; then
++    ri_suffix=$program_suffix
++else
++	ri_suffix=215d
++fi
+ 
+ RUBY_INSTALL_NAME="${ri_prefix}"'$(RUBY_BASE_NAME)'"${ri_suffix}"
+ case "$target_os" in #(
+diff --git a/configure.in b/configure.in
+index 5968bbd..a5955b7 100644
+--- a/configure.in
++++ b/configure.in
+@@ -3708,8 +3708,11 @@ test "$program_prefix" != NONE &&
+   ri_prefix=$program_prefix
+ 
+ ri_suffix=
+-test "$program_suffix" != NONE &&
+-  ri_suffix=$program_suffix
++if test "$program_suffix" != NONE ; then
++     ri_suffix=$program_suffix
++else
++	ri_suffix=215d
++fi
+ 
+ RUBY_INSTALL_NAME="${ri_prefix}"'$(RUBY_BASE_NAME)'"${ri_suffix}"
+ AS_CASE(["$target_os"],
 diff --git a/error.c b/error.c
 index 44f0459..845ffd1 100644
 --- a/error.c
 +++ b/error.c
 @@ -45,14 +45,13 @@ extern const char ruby_description[];
-
+ 
  static const char REPORTBUG_MSG[] =
  	"[NOTE]\n" \
 -	"You may have encountered a bug in the Ruby interpreter" \
@@ -314,14 +350,14 @@ index 44f0459..845ffd1 100644
  #endif
 -	"For details: http://www.ruby-lang.org/bugreport.html\n\n" \
      ;
-
+ 
  static const char *
 diff --git a/frame.c b/frame.c
 new file mode 100644
-index 0000000..949466f
+index 0000000..9b284f1
 --- /dev/null
 +++ b/frame.c
-@@ -0,0 +1,1178 @@
+@@ -0,0 +1,1206 @@
 +/*
 + * Copyright (C) 2012, 2014-2015 Rocky Bernstein
 + *
@@ -1352,29 +1388,20 @@ index 0000000..949466f
 +    /* For C frames we use the machine address of the function as the
 +       location rather than the last Ruby source-code line as YARV
 +       does. At a c_return event this is still not totally accurate,
-+       but it is a more little accurate than YARV. The hope is that with
++       but it is a little more accurate than YARV. The hope is that with
 +       the address you have the *ability* to track things
 +       further. gdb may be useful in tracking things further such as
 +       with the "info symbol" command.
 +    */
-+    for ( cfp = tf->cfp; cfp && !cfp->iseq && RUBYVM_CFUNC_FRAME_P(cfp);
-+	  cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(cfp) ) ;
++    cfp = tf->cfp;
++    if (RUBYVM_CFUNC_FRAME_P(cfp)) {
++	return rb_ary_new3(1, LONG2FIX(cfp->me->def->body.cfunc.func));
++    }
 +
 +    if (RUBY_VM_NORMAL_ISEQ_P(cfp->iseq)) {
-+	/* One thing YARV line locations do that foul us up is to
-+	   treat the PC of a trace location as the previous instruction.
-+	   Since we allow breakpoints on trace locations which happen *before*
-+	   the trace is executed, we want to correct locations here.
-+	*/
 +	const rb_iseq_t *iseq = cfp->iseq;
 +	size_t pos = cfp->pc - iseq->iseq_encoded;
-+	VALUE insn = iseq->iseq[pos];
-+	int is_trace = strncmp(insn_name(insn), "trace", sizeof("trace"))
-+	    == 0;
-+	if (is_trace) {
-+	    /* printf("At trace instruction\n"); */
-+	    pos++; /* Correct for subtraction in rb_iseq_line_no */
-+	}
++	const VALUE insn = iseq->iseq[pos];
 +	return rb_ary_new3(1, INT2FIX(rb_iseq_line_no(iseq, pos)));
 +    } else
 +	return Qnil;
@@ -1548,7 +1575,7 @@ index 10ac202..15a83a5 100644
 -#define RUBY_EVENT_ALL       0x00ff
 +#define RUBY_EVENT_BRKPT     0x0100
 +#define RUBY_EVENT_ALL       0x01ff
-
+ 
  /* for TracePoint extended events */
 -#define RUBY_EVENT_B_CALL            0x0100
  #define RUBY_EVENT_B_RETURN          0x0200
@@ -1556,12 +1583,12 @@ index 10ac202..15a83a5 100644
  #define RUBY_EVENT_THREAD_END        0x0800
 +#define RUBY_EVENT_B_CALL            0x1000
  #define RUBY_EVENT_TRACEPOINT_ALL    0xffff
-
+ 
  /* special events */
 @@ -1863,6 +1864,12 @@ void ruby_sig_finalize(void);
-
+ 
  RUBY_SYMBOL_EXPORT_END
-
+ 
 +struct origarg {
 +    int argc;
 +    char **argv;
@@ -1590,7 +1617,7 @@ index 7f0a945..544dcfe 100644
 @@ -690,38 +690,6 @@ insn_stack_increase(int depth, int insn, VALUE *opes)
  }
  #endif
-
+ 
 -/* some utilities */
 -
 -static int
@@ -1631,9 +1658,9 @@ index b700c6e..45d4134 100644
 --- a/iseq.c
 +++ b/iseq.c
 @@ -28,6 +28,39 @@ VALUE rb_cISeq;
-
+ 
  #define hidden_obj_p(obj) (!SPECIAL_CONST_P(obj) && !RBASIC(obj)->klass)
-
+ 
 +/* some utilities */
 +
 +int
@@ -1673,7 +1700,7 @@ index b700c6e..45d4134 100644
 @@ -93,7 +126,7 @@ iseq_free(void *ptr)
      RUBY_FREE_LEAVE("iseq");
  }
-
+ 
 -static void
 +void
  iseq_mark(void *ptr)
@@ -1682,7 +1709,7 @@ index b700c6e..45d4134 100644
 @@ -124,6 +157,23 @@ iseq_mark(void *ptr)
      RUBY_MARK_LEAVE("iseq");
  }
-
+ 
 +/*
 + * This routine is here to allow an external C extension to create a
 + * RubyVM::InstructionSequence object sequence from its own C pointer
@@ -1705,7 +1732,7 @@ index b700c6e..45d4134 100644
  {
 @@ -316,12 +366,16 @@ prepare_iseq_build(rb_iseq_t *iseq,
  }
-
+ 
  static VALUE
 -cleanup_iseq_build(rb_iseq_t *iseq)
 +cleanup_iseq_build(rb_iseq_t *iseq, VALUE type, VALUE src, int saving_iseq)
@@ -1720,13 +1747,13 @@ index b700c6e..45d4134 100644
 +    } else if (ISEQ_TYPE_EVAL == type) {
 +	iseq->source = src;
 +    }
-
+ 
      if (RTEST(err)) {
  	rb_funcall2(err, rb_intern("set_backtrace"), 1, &iseq->location.path);
 @@ -409,19 +463,30 @@ make_compile_option_value(rb_compile_option_t *option)
      return opt;
  }
-
+ 
 +static rb_iseq_t *
 +iseq_check(VALUE val)
 +{
@@ -1746,7 +1773,7 @@ index b700c6e..45d4134 100644
 -				&COMPILE_OPTION_DEFAULT);
 +				Qnil, &COMPILE_OPTION_DEFAULT);
  }
-
+ 
  VALUE
  rb_iseq_new_top(NODE *node, VALUE name, VALUE path, VALUE absolute_path, VALUE parent)
  {
@@ -1754,7 +1781,7 @@ index b700c6e..45d4134 100644
 -				&COMPILE_OPTION_DEFAULT);
 +				Qnil, &COMPILE_OPTION_DEFAULT);
  }
-
+ 
  VALUE
 @@ -430,43 +495,282 @@ rb_iseq_new_main(NODE *node, VALUE path, VALUE absolute_path)
      rb_thread_t *th = GET_THREAD();
@@ -1999,7 +2026,7 @@ index b700c6e..45d4134 100644
 +
 +    return children;
  }
-
+ 
  static VALUE
  rb_iseq_new_with_bopt_and_opt(NODE *node, VALUE name, VALUE path, VALUE absolute_path, VALUE first_lineno,
 -				VALUE parent, enum iseq_type type, VALUE bopt,
@@ -2011,10 +2038,10 @@ index b700c6e..45d4134 100644
      rb_iseq_t *iseq;
      VALUE self = iseq_alloc(rb_cISeq);
 +    int saving_iseq;
-
+ 
      GetISeqPtr(self, iseq);
      iseq->self = self;
-
+ 
      prepare_iseq_build(iseq, name, path, absolute_path, first_lineno, parent, type, bopt, option);
      rb_iseq_compile_node(self, node);
 -    cleanup_iseq_build(iseq);
@@ -2022,7 +2049,7 @@ index b700c6e..45d4134 100644
 +    cleanup_iseq_build(iseq, type, src, saving_iseq);
      return self;
  }
-
+ 
  VALUE
  rb_iseq_new_with_opt(NODE *node, VALUE name, VALUE path, VALUE absolute_path, VALUE first_lineno,
 -		     VALUE parent, enum iseq_type type,
@@ -2034,7 +2061,7 @@ index b700c6e..45d4134 100644
 -					   Qfalse, option);
 +					 Qfalse, src, option);
  }
-
+ 
  VALUE
  rb_iseq_new_with_bopt(NODE *node, VALUE name, VALUE path, VALUE absolute_path, VALUE first_lineno,
 -		       VALUE parent, enum iseq_type type, VALUE bopt)
@@ -2045,27 +2072,27 @@ index b700c6e..45d4134 100644
 -					   bopt, &COMPILE_OPTION_DEFAULT);
 +					 bopt, Qnil, &COMPILE_OPTION_DEFAULT);
  }
-
+ 
  #define CHECK_ARRAY(v)   rb_convert_type((v), T_ARRAY, "Array", "to_ary")
 @@ -488,6 +792,7 @@ iseq_load(VALUE self, VALUE data, VALUE parent, VALUE opt)
      rb_iseq_t *iseq;
      rb_compile_option_t option;
      int i = 0;
 +    int saving_iseq = 0;
-
+ 
      /* [magic, major_version, minor_version, format_type, misc,
       *  label, path, first_lineno,
 @@ -562,8 +867,9 @@ iseq_load(VALUE self, VALUE data, VALUE parent, VALUE opt)
  		       parent, (enum iseq_type)iseq_type, 0, &option);
-
+ 
      rb_iseq_build_from_ary(iseq, locals, args, exception, body);
 +    saving_iseq = update_file_iseq(path, name, self);
-
+ 
 -    cleanup_iseq_build(iseq);
 +    cleanup_iseq_build(iseq, (enum iseq_type)iseq_type, body, saving_iseq);
      return iseqval;
  }
-
+ 
 @@ -620,11 +926,11 @@ rb_iseq_compile_with_option(VALUE src, VALUE file, VALUE absolute_path, VALUE li
  	if (base_block && base_block->iseq) {
  	    iseqval = rb_iseq_new_with_opt(node, base_block->iseq->location.label,
@@ -2087,12 +2114,12 @@ index b700c6e..45d4134 100644
 -				ISEQ_TYPE_TOP, &option);
 +				ISEQ_TYPE_TOP, Qnil, &option);
  }
-
+ 
  /*
 @@ -786,17 +1092,6 @@ iseq_s_compile_option_get(VALUE self)
      return make_compile_option_value(&COMPILE_OPTION_DEFAULT);
  }
-
+ 
 -static rb_iseq_t *
 -iseq_check(VALUE val)
 -{
@@ -2110,7 +2137,7 @@ index b700c6e..45d4134 100644
 @@ -825,9 +1120,14 @@ iseq_inspect(VALUE self)
          return rb_sprintf("#<%s: uninitialized>", rb_obj_classname(self));
      }
-
+ 
 -    return rb_sprintf("<%s:%s@%s>",
 -                      rb_obj_classname(self),
 -		      RSTRING_PTR(iseq->location.label), RSTRING_PTR(iseq->location.path));
@@ -2123,12 +2150,12 @@ index b700c6e..45d4134 100644
 +			  rb_obj_classname(self),
 +			  RSTRING_PTR(iseq->location.label), RSTRING_PTR(iseq->location.path));
  }
-
+ 
  /*
 @@ -1141,6 +1441,40 @@ rb_iseq_line_no(const rb_iseq_t *iseq, size_t pos)
      }
  }
-
+ 
 +size_t
 +rb_iseq_start_insn(const rb_iseq_t *iseq, size_t pos)
 +{
@@ -2180,7 +2207,7 @@ index b700c6e..45d4134 100644
 @@ -1474,15 +1807,46 @@ rb_iseq_disasm(VALUE self)
  	n += rb_iseq_disasm_insn(str, iseq, n, iseqdat, child);
      }
-
+ 
 -    for (i = 0; i < RARRAY_LEN(child); i++) {
 -	VALUE isv = rb_ary_entry(child, i);
 -	rb_str_concat(str, rb_iseq_disasm(isv));
@@ -2190,10 +2217,10 @@ index b700c6e..45d4134 100644
 +	    VALUE isv = rb_ary_entry(child, i);
 +	    rb_str_concat(str, rb_iseq_disasm(isv));
 +	}
-
+ 
      return str;
  }
-
+ 
  /*
 + *  call-seq:
 + *     iseq.disasm   -> string
@@ -2231,7 +2258,7 @@ index b700c6e..45d4134 100644
 @@ -2273,15 +2637,300 @@ rb_iseq_line_trace_specify(VALUE iseqval, VALUE pos, VALUE set)
   *  you see.
   */
-
+ 
 +extern void Init_Brkpt(void); /* In brkpt.c */
 +
 +#define ISEQ_FIELD_METHOD(FIELD)		\
@@ -2528,11 +2555,11 @@ index b700c6e..45d4134 100644
 +
      rb_define_method(rb_cISeq, "to_a", iseq_to_a, 0);
      rb_define_method(rb_cISeq, "eval", iseq_eval, 0);
-
+ 
 @@ -2292,7 +2941,7 @@ Init_ISeq(void)
      rb_define_method(rb_cISeq, "base_label", rb_iseq_base_label, 0);
      rb_define_method(rb_cISeq, "first_lineno", rb_iseq_first_lineno, 0);
-
+ 
 -#if 0
 +#if 1
      /* Now, it is experimental. No discussions, no tests. */
@@ -2586,11 +2613,11 @@ index c34aafd..067f5d3 100644
 +const char *source_container_type(VALUE fileval);
  unsigned int rb_iseq_line_no(const rb_iseq_t *iseq, size_t pos);
 +size_t rb_iseq_start_insn(const rb_iseq_t *iseq, size_t pos);
-
+ 
  int rb_iseq_line_trace_each(VALUE iseqval, int (*func)(int line, rb_event_flag_t *events_ptr, void *d), void *data);
  VALUE rb_iseq_line_trace_all(VALUE iseqval);
  VALUE rb_iseq_line_trace_specify(VALUE iseqval, VALUE pos, VALUE set);
-
+ 
 +VALUE rb_iseq_argc(VALUE iseqval);
 +VALUE rb_iseq_arity(VALUE iseqval);
 +
@@ -2601,13 +2628,13 @@ index c34aafd..067f5d3 100644
 +int method_arity(VALUE);
 +int get_iseq_arity(rb_iseq_t *iseq);
 +VALUE rb_binding_frame_new(void *vth, void *vcfp);
-
+ 
  struct rb_compile_option_struct {
      int inline_const_cache;
 @@ -131,6 +141,12 @@ VALUE rb_iseq_defined_string(enum defined_type type);
-
+ 
  #define DEFAULT_SPECIAL_VAR_COUNT 2
-
+ 
 +/* some utilities */
 +extern int insn_len(VALUE insn);
 +extern const char *insn_name(VALUE insn);
@@ -2615,7 +2642,7 @@ index c34aafd..067f5d3 100644
 +extern int insn_op_type(VALUE insn, long pos);
 +
  RUBY_SYMBOL_EXPORT_END
-
+ 
  #endif /* RUBY_COMPILE_H */
 diff --git a/load.c b/load.c
 index f31b7ae..ef14f76 100644
@@ -2650,7 +2677,7 @@ index bf6f302..9de35db 100644
 +    int actual_argc; /* This probably should be called argc. It is the
 +			argument count at runtime.*/
  } rb_method_cfunc_t;
-
+ 
  typedef struct rb_method_attr_struct {
 diff --git a/proc.c b/proc.c
 index 4383790..b06e71e 100644
@@ -2658,17 +2685,17 @@ index 4383790..b06e71e 100644
 +++ b/proc.c
 @@ -31,7 +31,7 @@ VALUE rb_cBinding;
  VALUE rb_cProc;
-
+ 
  static VALUE bmcall(VALUE, VALUE, int, VALUE *, VALUE);
 -static int method_arity(VALUE);
 +int method_arity(VALUE);
  static int method_min_max_arity(VALUE, int *max);
  #define attached id__attached__
-
+ 
 @@ -329,6 +329,28 @@ rb_binding_new(void)
      return rb_binding_new_with_cfp(th, th->cfp);
  }
-
+ 
 +/*  Like rb_binding_new(), but we allow you to pass your own thread and
 + *  cfp rather than assume the current thread and current frame
 + *  pointer.
@@ -2696,7 +2723,7 @@ index 4383790..b06e71e 100644
   *     binding -> a_binding
 @@ -848,6 +870,29 @@ rb_proc_min_max_arity(VALUE self, int *max)
  }
-
+ 
  int
 +get_iseq_arity(rb_iseq_t *iseq)
 +{
@@ -2727,7 +2754,7 @@ index 4383790..b06e71e 100644
 @@ -900,6 +945,23 @@ rb_proc_get_iseq(VALUE self, int *is_proc)
      return iseq;
  }
-
+ 
 +/*
 + *  call-seq:
 + *  Method#iseq -> RubyVM::InstructionSequence
@@ -2751,7 +2778,7 @@ index 4383790..b06e71e 100644
 @@ -2063,7 +2125,7 @@ method_arity_m(VALUE method)
      return INT2FIX(n);
  }
-
+ 
 -static int
 +int
  method_arity(VALUE method)
@@ -2759,7 +2786,7 @@ index 4383790..b06e71e 100644
      struct METHOD *data;
 @@ -2508,6 +2570,100 @@ proc_curry(int argc, VALUE *argv, VALUE self)
  }
-
+ 
  /*
 + *  call-seq:
 + *  Method#alias_count -> Fixnum
@@ -2874,7 +2901,7 @@ index 4383790..b06e71e 100644
      rb_define_method(rb_mKernel, "method", rb_obj_method, 1);
      rb_define_method(rb_mKernel, "public_method", rb_obj_public_method, 1);
      rb_define_method(rb_mKernel, "singleton_method", rb_obj_singleton_method, 1);
-
+ 
 +    rb_define_method(rb_cMethod, "alias_count",  rb_method_alias_count, 0);
 +    rb_define_method(rb_cMethod, "original_id",  rb_method_original_id, 0);
 +    rb_define_method(rb_cMethod, "type",         rb_method_type, 0);
@@ -2893,7 +2920,7 @@ index 4383790..b06e71e 100644
 @@ -2661,6 +2824,10 @@ Init_Proc(void)
      rb_define_method(rb_cUnboundMethod, "source_location", rb_method_location, 0);
      rb_define_method(rb_cUnboundMethod, "parameters", rb_method_parameters, 0);
-
+ 
 +    rb_define_method(rb_cUnboundMethod, "alias_count", rb_method_alias_count, 0);
 +    rb_define_method(rb_cUnboundMethod, "original_id", rb_method_original_id, 0);
 +    rb_define_method(rb_cUnboundMethod, "type",        rb_method_type, 0);
@@ -2913,13 +2940,13 @@ index c7be967..604c62a 100644
 @@ -127,10 +127,7 @@ static NODE *load_file(VALUE, VALUE, int, struct cmdline_options *);
  static void forbid_setid(const char *, struct cmdline_options *);
  #define forbid_setid(s) forbid_setid((s), opt)
-
+ 
 -static struct {
 -    int argc;
 -    char **argv;
 -} origarg;
 +struct origarg origarg;
-
+ 
  static void
  usage(const char *name, int help)
 @@ -2023,6 +2020,17 @@ ruby_sysinit(int *argc, char ***argv)
@@ -2960,7 +2987,7 @@ index 99e4b7b..985736a 100644
 @@ -42,38 +42,6 @@ insn_stack_increase(int depth, int insn, VALUE *opes)
  }
  #endif
-
+ 
 -/* some utilities */
 -
 -static int
@@ -3007,7 +3034,7 @@ index 1879c22..a744dfb 100644
 -    paths = [ file=__FILE__, "(eval)", file, file, file, file ]
 +    paths = [ file=__FILE__, "(eval: 'def zab(block) b...')", file, file, file, file ]
      absolute_paths = [ file, nil, file, file, file, file ]
-
+ 
      # pp frames
 diff --git a/test/debugger-ext/test-000-config.rb b/test/debugger-ext/test-000-config.rb
 new file mode 100644
@@ -3115,10 +3142,10 @@ index 0000000..bf50412
 +at_exit { GC.start  }
 diff --git a/test/debugger-ext/test-frame.rb b/test/debugger-ext/test-frame.rb
 new file mode 100644
-index 0000000..b18173e
+index 0000000..2826405
 --- /dev/null
 +++ b/test/debugger-ext/test-frame.rb
-@@ -0,0 +1,159 @@
+@@ -0,0 +1,160 @@
 +require 'test/unit'
 +
 +class TestFrame < Test::Unit::TestCase
@@ -3224,6 +3251,7 @@ index 0000000..b18173e
 +            assert_equal(nil, tf.method)
 +            assert_equal('CFUNC', tf.prev.type)
 +            assert_equal('times', tf.prev.method)
++            assert_equal(Integer, tf.prev.klass)
 +            assert_equal(self, tf.self)
 +            assert_equal(0, tf.arity, 'C arity should work nowadays' )
 +            assert_equal(0, tf.argc, 'C args is the same as arity')
@@ -3280,7 +3308,7 @@ index 0000000..b18173e
 +at_exit { GC.start  }
 diff --git a/test/debugger-ext/test-iseq-field-access.rb b/test/debugger-ext/test-iseq-field-access.rb
 new file mode 100644
-index 0000000..b196777
+index 0000000..3137331
 --- /dev/null
 +++ b/test/debugger-ext/test-iseq-field-access.rb
 @@ -0,0 +1,64 @@
@@ -3338,7 +3366,7 @@ index 0000000..b196777
 +       ['klass'       ,  false],
 +       ['local_size'  ,  3],
 +       ['local_table_size', 2],
-+       ['type'        ,  false]].each do |method, expected|
++       ['type'        ,  0]].each do |method, expected|
 +          assert_equal(expected, iseq.send(method), method)
 +      end
 +
@@ -3905,7 +3933,7 @@ index 0000000..d481fc3
 +else
 +    args=$@
 +fi
-+for t in $args ; do
++for t in $args ; do 
 +    echo "===== $t ====="
 +    ../../miniruby -I../../lib -I../.. $t
 +    # echo ../../miniruby -I../../lib -I../.. $t
@@ -3940,7 +3968,7 @@ index b6be501..7dfb88c 100644
 -      \z
        )x
    end
-
+ 
 diff --git a/tool/mkconfig.rb b/tool/mkconfig.rb
 index 07076d4..c8e965c 100755
 --- a/tool/mkconfig.rb
@@ -3950,7 +3978,7 @@ index 07076d4..c8e965c 100755
  print "  CONFIG = {}\n"
  print "  CONFIG[\"DESTDIR\"] = DESTDIR\n"
 +print "  CONFIG[\"rb-threadframe\"] = \"0.3\"\n"
-
+ 
  versions = {}
  IO.foreach(File.join(srcdir, "version.h")) do |l|
 diff --git a/version.h b/version.h
@@ -3973,7 +4001,7 @@ index a506b04..8723430 100644
 @@ -2010,6 +2010,8 @@ thread_recycle_struct(void)
  }
  #endif
-
+ 
 +extern struct origarg origarg;
 +
  void
@@ -3982,7 +4010,7 @@ index a506b04..8723430 100644
 @@ -2493,6 +2495,21 @@ Init_VM(void)
      rb_undef_method(CLASS_OF(rb_cRubyVM), "new");
      rb_define_singleton_method(rb_cRubyVM, "stat", vm_stat, -1);
-
+ 
 +    /** set RubyVM::OS_ARGV and RubyVM::OS_STARTUP_DIR */
 +    rb_define_const(rb_cRubyVM, "OS_STARTUP_DIR",
 +		    strlen(origarg.os_startup_dir) > 0 ?
@@ -4012,7 +4040,7 @@ index 5d655f2..486d527 100644
 +++ b/vm.inc
 @@ -1230,6 +1230,8 @@ INSN_ENTRY(trace){
    rb_num_t nf = (rb_num_t)GET_OPERAND(1);
-
+ 
    DEBUG_ENTER_INSN("trace");
 +  TEST_AND_HANDLE_BREAKPOINT(GET_CFP(), GET_PC());
 +
@@ -4024,7 +4052,7 @@ index 21c9aae..7904cd5 100644
 --- a/vm_core.h
 +++ b/vm_core.h
 @@ -321,6 +321,23 @@ struct rb_iseq_struct {
-
+ 
      /* used at compile time */
      struct iseq_compile_data *compile_data;
 +
@@ -4045,7 +4073,7 @@ index 21c9aae..7904cd5 100644
 +		    access or is stored in ISEQS__ or SCRIPT_ISEQS.
 +		  */
  };
-
+ 
  enum ruby_special_exceptions {
 @@ -453,6 +470,9 @@ typedef struct rb_control_frame_struct {
      rb_iseq_t *block_iseq;	/* cfp[7] / block[3] */
@@ -4054,13 +4082,13 @@ index 21c9aae..7904cd5 100644
 +    short int trace_disable;    /* Bits to disable per-frame event tracing.
 +				   See VM_FRAME_TRACE_xxx defines.
 +				 */
-
+ 
  #if VM_DEBUG_BP_CHECK
      VALUE *bp_check;		/* cfp[10] */
 @@ -538,6 +558,15 @@ typedef struct rb_thread_struct {
-
+ 
      int waiting_fd;
-
+ 
 +    /* tracer */
 +    rb_hook_list_t event_hooks;
 +    struct rb_trace_arg_struct *trace_arg; /* trace information */
@@ -4072,11 +4100,11 @@ index 21c9aae..7904cd5 100644
 +
      /* for rb_iterate */
      const rb_block_t *passed_block;
-
+ 
 @@ -563,6 +592,14 @@ typedef struct rb_thread_struct {
      int to_kill;
      int priority;
-
+ 
 +    /* statistics data for profiler */
 +    VALUE stat_insn_usage;
 +
@@ -4087,11 +4115,11 @@ index 21c9aae..7904cd5 100644
 +
      native_thread_data_t native_thread_data;
      void *blocking_region_buffer;
-
+ 
 @@ -630,24 +667,9 @@ typedef struct rb_thread_struct {
      } machine;
      int mark_stack_len;
-
+ 
 -    /* statistics data for profiler */
 -    VALUE stat_insn_usage;
 -
@@ -4106,7 +4134,7 @@ index 21c9aae..7904cd5 100644
 -
      /* ensure & callcc */
      rb_ensure_list_t *ensure_list;
-
+ 
 -    /* misc */
 -    int method_missing_reason;
 -    int abort_on_exception;
@@ -4120,21 +4148,21 @@ index 21c9aae..7904cd5 100644
 -VALUE rb_iseq_new_with_opt(NODE*, VALUE, VALUE, VALUE, VALUE, VALUE, enum iseq_type, const rb_compile_option_t*);
 +VALUE rb_iseq_new_with_opt(NODE*, VALUE, VALUE, VALUE, VALUE, VALUE, enum iseq_type,
 +			   VALUE, const rb_compile_option_t*);
-
+ 
  /* src -> iseq */
  VALUE rb_iseq_compile(VALUE src, VALUE file, VALUE line);
 @@ -685,6 +708,7 @@ VALUE rb_iseq_compile_on_base(VALUE src, VALUE file, VALUE line, rb_block_t *bas
  VALUE rb_iseq_compile_with_option(VALUE src, VALUE file, VALUE absolute_path, VALUE line, rb_block_t *base_block, VALUE opt);
-
+ 
  VALUE rb_iseq_disasm(VALUE self);
 +VALUE rb_iseq_disasm_nochildren(VALUE self);
  int rb_iseq_disasm_insn(VALUE str, VALUE *iseqval, size_t pos, rb_iseq_t *iseq, VALUE child);
  const char *ruby_node_name(int node);
-
+ 
 @@ -771,6 +795,13 @@ enum vm_special_object_type {
-
+ 
  #define VM_FRAME_TYPE(cfp) ((cfp)->flag & VM_FRAME_MAGIC_MASK)
-
+ 
 +#define VM_FRAME_TRACE_RETURN 0x01  /* Call trace hook on return. */
 +#define VM_FRAME_TRACE_OFF    0x02  /* Turn of event hook tracing in this
 +				       frame and any frames created from
@@ -4152,7 +4180,7 @@ index e55841d..d9345b8 100644
 @@ -20,6 +20,27 @@ static VALUE vm_exec(rb_thread_t *th);
  static void vm_set_eval_stack(rb_thread_t * th, VALUE iseqval, const NODE *cref, rb_block_t *base_block);
  static int vm_collect_local_variables_in_heap(rb_thread_t *th, VALUE *dfp, VALUE ary);
-
+ 
 +
 +#define MAX_EVAL_STR 20
 +static char *
@@ -4176,11 +4204,11 @@ index e55841d..d9345b8 100644
 +
  /* vm_backtrace.c */
  VALUE rb_vm_backtrace_str_ary(rb_thread_t *th, int lev, int n);
-
+ 
 @@ -104,14 +125,20 @@ vm_call0_cfunc_with_frame(rb_thread_t* th, rb_call_info_t *ci, const VALUE *argv
      ID mid = ci->mid;
      rb_block_t *blockptr = ci->blockptr;
-
+ 
 -    RUBY_DTRACE_CMETHOD_ENTRY_HOOK(th, defined_class, mid);
 -    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_CALL, recv, mid, defined_class, Qnil);
 +    /* Store actual argument count. Note that cfunc.argc
@@ -4190,15 +4218,15 @@ index e55841d..d9345b8 100644
 +
      {
  	rb_control_frame_t *reg_cfp = th->cfp;
-
+ 
  	vm_push_frame(th, 0, VM_FRAME_MAGIC_CFUNC, recv, defined_class,
  		      VM_ENVVAL_BLOCK_PTR(blockptr), 0, reg_cfp->sp, 1, me, 0);
-
+ 
 +	RUBY_DTRACE_CMETHOD_ENTRY_HOOK(th, defined_class, mid);
 +	EXEC_EVENT_HOOK(th, RUBY_EVENT_C_CALL, recv, mid, defined_class,
 +			Qnil);
  	if (len >= 0) rb_check_arity(argc, len, len);
-
+ 
  	VM_PROFILE_UP(2);
 @@ -121,10 +148,11 @@ vm_call0_cfunc_with_frame(rb_thread_t* th, rb_call_info_t *ci, const VALUE *argv
  		rb_bug("vm_call0_cfunc_with_frame: cfp consistency error");
@@ -4211,21 +4239,21 @@ index e55841d..d9345b8 100644
      }
 -    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_RETURN, recv, mid, defined_class, val);
 -    RUBY_DTRACE_CMETHOD_RETURN_HOOK(th, defined_class, mid);
-
+ 
      return val;
  }
 @@ -1239,7 +1267,8 @@ eval_string_with_cref(VALUE self, VALUE src, VALUE scope, NODE *const cref_arg,
  	}
-
+ 
  	if ((fname = file) == Qundef) {
 -	    fname = rb_usascii_str_new_cstr("(eval)");
 +	    /* fname = rb_usascii_str_new_cstr("(eval)"); */
 +	    fname = rb_usascii_str_new_cstr(eval_str_fmt(StringValuePtr(src)));
  	}
-
+ 
  	if (RTEST(fname))
 @@ -1271,6 +1300,7 @@ eval_string_with_cref(VALUE self, VALUE src, VALUE scope, NODE *const cref_arg,
-
+ 
  	/* save new env */
  	GetISeqPtr(iseqval, iseq);
 +	iseq->source = src;
@@ -4252,7 +4280,7 @@ index e55841d..d9345b8 100644
 +    snprintf(eval_fname, 15, "eval: '%10s'", str);
 +    return ruby_eval_string_from_file(str, eval_str_fmt(str));
  }
-
+ 
  /**
   * Evaluates the given string in an isolated binding.
   *
@@ -4279,10 +4307,10 @@ index 9913476..df6aa86 100644
 @@ -71,7 +71,7 @@ vm_exec_core(rb_thread_t *th, VALUE initial)
      VALUE *reg_pc;
  #endif
-
+ 
 -#if USE_MACHINE_REGS
 +#if USE_MACHINE_REGS && defined(DISALLOW_PC_CHANGE)
-
+ 
  #undef  RESTORE_REGS
  #define RESTORE_REGS() \
 diff --git a/vm_exec.h b/vm_exec.h
@@ -4292,7 +4320,7 @@ index 3de601f..5dcf1a2 100644
 @@ -17,6 +17,14 @@ typedef unsigned long lindex_t;
  typedef VALUE GENTRY;
  typedef rb_iseq_t *ISEQ;
-
+ 
 +/* Rocky: VM-assisted breakpoint handling. */
 +#define TEST_AND_HANDLE_BREAKPOINT(cfp, pc)				\
 +    if (UNLIKELY(cfp->iseq &&						\
@@ -4316,7 +4344,7 @@ index cceefdb..0098240 100644
 +
 +    if (type != VM_FRAME_MAGIC_TOP)
 +      trace_disable = th->cfp->trace_disable;
-
+ 
      /* check stack overflow */
      CHECK_VM_STACK_OVERFLOW0(cfp, sp, local_size + (int)stack_max);
 @@ -75,6 +79,7 @@ vm_push_frame(rb_thread_t *th,
@@ -4330,47 +4358,47 @@ index cceefdb..0098240 100644
 @@ -1476,27 +1481,32 @@ vm_call_cfunc_with_frame(rb_thread_t *th, rb_control_frame_t *reg_cfp, rb_call_i
      rb_block_t *blockptr = ci->blockptr;
      int argc = ci->argc;
-
+ 
 -    RUBY_DTRACE_CMETHOD_ENTRY_HOOK(th, me->klass, me->called_id);
 -    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_CALL, recv, me->called_id, me->klass, Qundef);
 +    /* Store actual argument count. Note that (len) cfunc->argc
 +       contains the prototype value.
 +    */
 +    me->def->body.cfunc.actual_argc = argc;
-
+ 
      vm_push_frame(th, 0, VM_FRAME_MAGIC_CFUNC, recv, defined_class,
  		  VM_ENVVAL_BLOCK_PTR(blockptr), 0, th->cfp->sp, 1, me, 0);
-
+ 
 +    RUBY_DTRACE_CMETHOD_ENTRY_HOOK(th, me->klass, me->called_id);
 +    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_CALL, recv, me->called_id, me->klass, Qundef);
 +
      if (len >= 0) rb_check_arity(argc, len, len);
-
+ 
      reg_cfp->sp -= argc + 1;
      VM_PROFILE_UP(0);
      val = (*cfunc->invoker)(cfunc->func, recv, argc, reg_cfp->sp + 1);
-
+ 
 +    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_RETURN, recv, me->called_id, me->klass, val);
 +    RUBY_DTRACE_CMETHOD_RETURN_HOOK(th, me->klass, me->called_id);
 +
      if (reg_cfp != th->cfp + 1) {
  	rb_bug("vm_call_cfunc - cfp consistency error");
      }
-
+ 
      vm_pop_frame(th);
-
+ 
 -    EXEC_EVENT_HOOK(th, RUBY_EVENT_C_RETURN, recv, me->called_id, me->klass, val);
 -    RUBY_DTRACE_CMETHOD_RETURN_HOOK(th, me->klass, me->called_id);
 -
      return val;
  }
-
+ 
 diff --git a/vm_opts.h b/vm_opts.h
 index 80a00ee..6c4082c 100644
 --- a/vm_opts.h
 +++ b/vm_opts.h
 @@ -36,8 +36,8 @@
-
+ 
  /* VM running option */
  #define OPT_CHECKED_RUN              1
 -#define OPT_INLINE_METHOD_CACHE      1
@@ -4378,7 +4406,7 @@ index 80a00ee..6c4082c 100644
 +#define OPT_INLINE_METHOD_CACHE      0
 +#define OPT_GLOBAL_METHOD_CACHE      0
  #define OPT_BLOCKINLINING            0
-
+ 
  /* architecture independent, affects generated code */
 diff --git a/vm_trace.c b/vm_trace.c
 index 2047d5a..475f901 100644
@@ -4386,7 +4414,7 @@ index 2047d5a..475f901 100644
 +++ b/vm_trace.c
 @@ -10,7 +10,7 @@
  **********************************************************************/
-
+ 
  /*
 - * This file incldue two parts:
 + * This file includes two parts:
@@ -4396,18 +4424,18 @@ index 2047d5a..475f901 100644
 @@ -29,6 +29,10 @@
  #include "vm_core.h"
  #include "eval_intern.h"
-
+ 
 +VALUE
 +frame_prev(rb_control_frame_t *prev_cfp, rb_thread_t *th,
 +	   int n);
 +
  /* (1) trace mechanisms */
-
+ 
  typedef struct rb_event_hook_struct {
 @@ -256,6 +260,19 @@ exec_hooks_body(rb_thread_t *th, rb_hook_list_t *list, const rb_trace_arg_t *tra
  {
      rb_event_hook_t *hook;
-
+ 
 +    if (UNLIKELY(th->cfp->trace_disable)) {
 +	if (! (UNLIKELY(th->cfp->trace_disable & VM_FRAME_TRACE_RETURN) &&
 +	       (trace_arg->event &
@@ -4442,7 +4470,7 @@ index 2047d5a..475f901 100644
  	C(call, CALL);
 @@ -688,6 +707,7 @@ symbol2event_flag(VALUE v)
      VALUE sym = rb_convert_type(v, T_SYMBOL, "Symbol", "to_sym");
-
+ 
  #define C(name, NAME) CONST_ID(id, #name); if (sym == ID2SYM(id)) return RUBY_EVENT_##NAME
 +    C(brkpt, BRKPT);
      C(line, LINE);
@@ -4450,7 +4478,7 @@ index 2047d5a..475f901 100644
      C(end, END);
 @@ -973,6 +993,22 @@ tracepoint_attr_self(VALUE tpval)
  }
-
+ 
  /*
 + * Return the generated frame object from event
 + */
@@ -4474,7 +4502,7 @@ index 2047d5a..475f901 100644
 @@ -995,6 +1031,17 @@ tp_call_trace(VALUE tpval, rb_trace_arg_t *trace_arg)
  {
      rb_tp_t *tp = tpptr(tpval);
-
+ 
 +    /* The check below is needed because I allow dynamically changing
 +       the tracepoint event mask. I'd like to fold this test into
 +       exec_hooks_precheck where the same test is done via a mask in
@@ -4492,18 +4520,18 @@ index 2047d5a..475f901 100644
 @@ -1008,6 +1055,11 @@ rb_tracepoint_enable(VALUE tpval)
  {
      rb_tp_t *tp;
-
+ 
 +    /* Set to make sure we don't trace ourselves.
 +       Really, it's just the c-return that would get traced */
 +    rb_thread_t *th = GET_THREAD();
 +    th->cfp->trace_disable = VM_FRAME_TRACE_OFF_1;
 +
      tp = tpptr(tpval);
-
+ 
      if (tp->target_th) {
 @@ -1256,6 +1308,62 @@ tracepoint_new_s(int argc, VALUE *argv, VALUE self)
  }
-
+ 
  static VALUE
 +tracepoint_event_mask_set(int argc, VALUE *argv, VALUE tracepoint)
 +{
@@ -4575,7 +4603,7 @@ index 2047d5a..475f901 100644
 @@ -1395,6 +1504,9 @@ Init_vm_trace(void)
       */
      rb_define_singleton_method(rb_cTracePoint, "trace", tracepoint_trace_s, -1);
-
+ 
 +    rb_define_method(rb_cTracePoint, "event_mask", tracepoint_event_mask, 0);
 +    rb_define_method(rb_cTracePoint, "event_mask_set", tracepoint_event_mask_set, -1);
 +
@@ -4585,9 +4613,9 @@ index 2047d5a..475f901 100644
 @@ -1411,6 +1523,8 @@ Init_vm_trace(void)
      rb_define_method(rb_cTracePoint, "return_value", tracepoint_attr_return_value, 0);
      rb_define_method(rb_cTracePoint, "raised_exception", tracepoint_attr_raised_exception, 0);
-
+ 
 +   rb_define_method(rb_cTracePoint, "frame", tracepoint_attr_frame, 0);
 +
      /* initialized for postponed job */
-
+ 
      Init_postponed_job();

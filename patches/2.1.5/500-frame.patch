@@ -25,7 +25,7 @@ new file mode 100644
 index 0000000..95dd97b
 --- /dev/null
 +++ b/frame.c
-@@ -0,0 +1,1170 @@
+@@ -0,0 +1,1161 @@
 +/*
 + * Copyright (C) 2012, 2014-2015 Rocky Bernstein
 + *
@@ -1013,29 +1013,20 @@ index 0000000..95dd97b
 +    /* For C frames we use the machine address of the function as the
 +       location rather than the last Ruby source-code line as YARV
 +       does. At a c_return event this is still not totally accurate,
-+       but it is a more little accurate than YARV. The hope is that with
++       but it is a little more accurate than YARV. The hope is that with
 +       the address you have the *ability* to track things
 +       further. gdb may be useful in tracking things further such as
 +       with the "info symbol" command.
 +    */
-+    for ( cfp = tf->cfp; cfp && !cfp->iseq && RUBYVM_CFUNC_FRAME_P(cfp);
-+	  cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(cfp) ) ;
++    cfp = tf->cfp;
++    if (RUBYVM_CFUNC_FRAME_P(cfp)) {
++	return rb_ary_new3(1, LONG2FIX(cfp->me->def->body.cfunc.func));
++    }
 +
 +    if (RUBY_VM_NORMAL_ISEQ_P(cfp->iseq)) {
-+	/* One thing YARV line locations do that foul us up is to
-+	   treat the PC of a trace location as the previous instruction.
-+	   Since we allow breakpoints on trace locations which happen *before*
-+	   the trace is executed, we want to correct locations here.
-+	*/
 +	const rb_iseq_t *iseq = cfp->iseq;
 +	size_t pos = cfp->pc - iseq->iseq_encoded;
-+	VALUE insn = iseq->iseq[pos];
-+	int is_trace = strncmp(insn_name(insn), "trace", sizeof("trace"))
-+	    == 0;
-+	if (is_trace) {
-+	    /* printf("At trace instruction\n"); */
-+	    pos++; /* Correct for subtraction in rb_iseq_line_no */
-+	}
++	const VALUE insn = iseq->iseq[pos];
 +	return rb_ary_new3(1, INT2FIX(rb_iseq_line_no(iseq, pos)));
 +    } else
 +	return Qnil;
@@ -1213,7 +1204,7 @@ new file mode 100644
 index 0000000..e9a4381
 --- /dev/null
 +++ b/test/debugger-ext/test-frame.rb
-@@ -0,0 +1,162 @@
+@@ -0,0 +1,163 @@
 +require 'test/unit'
 +
 +class TestFrame < Test::Unit::TestCase
@@ -1319,6 +1310,7 @@ index 0000000..e9a4381
 +            assert_equal(nil, tf.method)
 +            assert_equal('CFUNC', tf.prev.type)
 +            assert_equal('times', tf.prev.method)
++            assert_equal(Integer, tf.prev.klass)
 +            assert_equal(self, tf.self)
 +            ## FIXME:
 +            ## assert_equal(0, tf.get.arity, 'C arity should work nowadays' )

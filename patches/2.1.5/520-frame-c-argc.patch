@@ -67,7 +67,7 @@ index 34f193f..9a0946d 100644
   *     RubyVM::Frame#binding   -> binding
   *
   *  Returns a binding for a given thread frame.
-@@ -1118,6 +1152,8 @@ Init_Frame(void)
+@@ -1109,6 +1152,8 @@ Init_Frame(void)
 
      rb_define_method(rb_cFrame, "valid?",       rb_frame_valid, 0);
 
@@ -151,7 +151,7 @@ index 288dba4..aa1b42f 100644
          end
 
          x  = lambda do |x,y|
-@@ -126,9 +122,8 @@ class TestFrame < Test::Unit::TestCase
+@@ -127,9 +123,8 @@ class TestFrame < Test::Unit::TestCase
              assert_equal(nil, frame.method)
              assert_equal('LAMBDA', frame.type)
              assert_equal(x, tf.self)
