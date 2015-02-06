@@ -1,5 +1,7 @@
-Add support for breakpoints in the VM. This allows debuggers to run at full
-speed.
+Add support for breakpoints in the VM. This allows debuggers to run at
+full speed. To speed things up, for now we only test for breakpoints
+in the "trace" instruction. In the future though we could allow for
+breakpoints to occur at any VM instruction.
 
 External routines added to RubyVM::InstructionSequence (in brkpt.c):
   brkpt_alloc - allocate breakpoint vector

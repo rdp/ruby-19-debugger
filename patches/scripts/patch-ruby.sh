@@ -55,6 +55,7 @@ case $patchfile in
 	    000-config.patch \
 	    000-error.patch \
 	    000-pc-modify.patch \
+	    000-program-suffix.patch \
 	    000-testit.patch \
 	    001-disable-cache.patch \
 	    130-brkpt.patch \

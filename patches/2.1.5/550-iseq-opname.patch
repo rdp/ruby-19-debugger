@@ -45,7 +45,7 @@ index 24d2cfd..45d4134 100644
 index ad77f35..4bb9a95 100644
 --- a/test/debugger-ext/test-frame.rb
 +++ b/test/debugger-ext/test-frame.rb
-@@ -87,6 +87,7 @@ class TestFrame < Test::Unit::TestCase
+@@ -93,6 +93,7 @@ class TestFrame < Test::Unit::TestCase
 
          tf_prev = tf.prev
          assert(tf_prev.pc_offset > 0, "Should be valid PC offset for prev")

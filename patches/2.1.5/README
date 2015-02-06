@@ -53,6 +53,13 @@ optimization of keeping the PC in a register is only done for
 Intel-like machine architectures.
 
 -------------------
+000-program-suffix.patch:
+
+Set the default program suffix to 215d. We expect this to be
+installed side by side with the stock MRI ruby and therefore should
+co-exist rather than replace by default.
+
+-------------------
 000-testit.patch:
 
 Adds a script that helps me run the debugger-extension unit tests
@@ -67,8 +74,10 @@ For debugging, we probably want to disable method caching. Dunno
 -------------------
 130-brkpt.patch
 
-Add support for breakpoints in the VM. This allows debuggers to run at full
-speed.
+Add support for breakpoints in the VM. This allows debuggers to run at
+full speed. To speed things up, for now we only test for breakpoints
+in the "trace" instruction. In the future though we could allow for
+breakpoints to occur at any VM instruction.
 
 External routines added to RubyVM::InstructionSequence (in brkpt.c):
   brkpt_alloc - allocate breakpoint vector

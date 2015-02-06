@@ -1,0 +1,40 @@
+Set the default program suffix to 215d. We expect this to be
+installed side by side with the stock MRI ruby and therefore should
+co-exist rather than replace by default.
+
+diff --git a/configure b/configure
+index bcf7810..90f1e2b 100755
+--- a/configure
++++ b/configure
+@@ -22101,8 +22101,11 @@ test "$program_prefix" != NONE &&
+   ri_prefix=$program_prefix
+
+ ri_suffix=
+-test "$program_suffix" != NONE &&
+-  ri_suffix=$program_suffix
++if test "$program_suffix" != NONE ; then
++    ri_suffix=$program_suffix
++else
++	ri_suffix=215d
++fi
+
+ RUBY_INSTALL_NAME="${ri_prefix}"'$(RUBY_BASE_NAME)'"${ri_suffix}"
+ case "$target_os" in #(
+diff --git a/configure.in b/configure.in
+index 5968bbd..a5955b7 100644
+--- a/configure.in
++++ b/configure.in
+@@ -3708,8 +3708,11 @@ test "$program_prefix" != NONE &&
+   ri_prefix=$program_prefix
+
+ ri_suffix=
+-test "$program_suffix" != NONE &&
+-  ri_suffix=$program_suffix
++if test "$program_suffix" != NONE ; then
++     ri_suffix=$program_suffix
++else
++	ri_suffix=215d
++fi
+
+ RUBY_INSTALL_NAME="${ri_prefix}"'$(RUBY_BASE_NAME)'"${ri_suffix}"
+ AS_CASE(["$target_os"],
