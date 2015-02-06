@@ -19,7 +19,7 @@ if [[ $(pwd) == ${BUILDDIR}/ruby-2.1.5 ]]; then
     git commit -m'Base commit' . | head -5
     $PATCH_SCRIPT 2.1.5
     if (( $? == 0 )) ; then
-	git add brkpt.c frame.c test/debugger-ext/*
+	git add -f brkpt.c frame.c test/debugger-ext/*
 	chmod +x test/debugger-ext/testit.sh
 	git commit -m'For combined patches'
 	PAGER=cat git diff HEAD^ > $CODE_DIR/../ruby-2.1.5-combined-next.patch

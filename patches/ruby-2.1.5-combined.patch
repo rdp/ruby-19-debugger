@@ -318,10 +318,10 @@ index 44f0459..845ffd1 100644
  static const char *
 diff --git a/frame.c b/frame.c
 new file mode 100644
-index 0000000..c698d4f
+index 0000000..949466f
 --- /dev/null
 +++ b/frame.c
-@@ -0,0 +1,1215 @@
+@@ -0,0 +1,1178 @@
 +/*
 + * Copyright (C) 2012, 2014-2015 Rocky Bernstein
 + *
@@ -3115,10 +3115,10 @@ index 0000000..bf50412
 +at_exit { GC.start  }
 diff --git a/test/debugger-ext/test-frame.rb b/test/debugger-ext/test-frame.rb
 new file mode 100644
-index 0000000..1dca307
+index 0000000..b18173e
 --- /dev/null
 +++ b/test/debugger-ext/test-frame.rb
-@@ -0,0 +1,158 @@
+@@ -0,0 +1,159 @@
 +require 'test/unit'
 +
 +class TestFrame < Test::Unit::TestCase
@@ -4006,6 +4006,19 @@ index a506b04..8723430 100644
  }
  #endif
 -
+diff --git a/vm.inc b/vm.inc
+index 5d655f2..486d527 100644
+--- a/vm.inc
++++ b/vm.inc
+@@ -1230,6 +1230,8 @@ INSN_ENTRY(trace){
+   rb_num_t nf = (rb_num_t)GET_OPERAND(1);
+
+   DEBUG_ENTER_INSN("trace");
++  TEST_AND_HANDLE_BREAKPOINT(GET_CFP(), GET_PC());
++
+   ADD_PC(1+1);
+   PREFETCH(GET_PC());
+   #define CURRENT_INSN_trace 1
 diff --git a/vm_core.h b/vm_core.h
 index 21c9aae..7904cd5 100644
 --- a/vm_core.h
@@ -4273,14 +4286,13 @@ index 9913476..df6aa86 100644
  #undef  RESTORE_REGS
  #define RESTORE_REGS() \
 diff --git a/vm_exec.h b/vm_exec.h
-index 3de601f..6b677d5 100644
+index 3de601f..5dcf1a2 100644
 --- a/vm_exec.h
 +++ b/vm_exec.h
-@@ -17,12 +17,17 @@ typedef unsigned long lindex_t;
+@@ -17,6 +17,14 @@ typedef unsigned long lindex_t;
  typedef VALUE GENTRY;
  typedef rb_iseq_t *ISEQ;
 
--#ifdef __GCC__
 +/* Rocky: VM-assisted breakpoint handling. */
 +#define TEST_AND_HANDLE_BREAKPOINT(cfp, pc)				\
 +    if (UNLIKELY(cfp->iseq &&						\
@@ -4289,16 +4301,9 @@ index 3de601f..6b677d5 100644
 +	EXEC_EVENT_HOOK(th, RUBY_EVENT_BRKPT, cfp->self,		\
 +			0, 0, Qundef)
 +
+ #ifdef __GCC__
  /* TODO: machine dependent prefetch instruction */
--#define PREFETCH(pc)
--#else
--#define PREFETCH(pc)
--#endif
-+#define PREFETCH(pc)							\
-+    TEST_AND_HANDLE_BREAKPOINT(GET_CFP(), pc)
-
- #if VMDEBUG > 0
- #define debugs printf
+ #define PREFETCH(pc)
 diff --git a/vm_insnhelper.c b/vm_insnhelper.c
 index cceefdb..0098240 100644
 --- a/vm_insnhelper.c

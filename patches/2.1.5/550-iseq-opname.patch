@@ -1,0 +1,55 @@
+Return the opcode name at given offset in an isntruction sequence
+
+diff --git a/iseq.c b/iseq.c
+index 24d2cfd..45d4134 100644
+--- a/iseq.c
++++ b/iseq.c
+@@ -2893,6 +2893,29 @@ VALUE iseq_offset2lines(VALUE iseqval, VALUE offsetval)
+     return Qnil;
+ }
+
++/*
++ * call-seq:
++ *     RubyVM::InstructionSequence#op_at(offset) -> String
++ *
++ * Returns the opcode name, a String, at the given offset
++ */
++VALUE rb_iseq_op_at(VALUE klass, VALUE offset)
++{
++    rb_iseq_t *iseq;
++
++    GetISeqPtr(klass, iseq);
++
++    if (!FIXNUM_P(offset))
++      rb_raise(rb_eTypeError, "type mismatch: %s given, Fixnum expected",
++	       rb_class2name(CLASS_OF(offset)));
++    if (FIX2INT(offset) >= 0) {
++      size_t pos = FIX2INT(offset);
++      VALUE insn = iseq->iseq[pos];
++      return rb_str_new2(insn_name(insn));
++    }
++    rb_raise(rb_eArgError, "value should be greater than 0");
++}
++
+ void
+ Init_ISeq(void)
+ {
+@@ -2966,6 +2989,7 @@ Init_ISeq(void)
+     rb_define_method(rb_cISeq, "local_table_size", rb_iseq_local_table_size, 0) ;
+     rb_define_method(rb_cISeq, "offset2lines",     iseq_offset2lines, 1) ;
+     rb_define_method(rb_cISeq, "offsetlines",      iseq_offsetlines, 0) ;
++    rb_define_method(rb_cISeq, "op_at",            rb_iseq_op_at, 1) ;
+     rb_define_method(rb_cISeq, "parent",           rb_iseq_parent, 0) ;
+     rb_define_method(rb_cISeq, "orig",             rb_iseq_orig, 0) ;
+     rb_define_method(rb_cISeq, "self",             rb_iseq_self, 0) ;
+index ad77f35..4bb9a95 100644
+--- a/test/debugger-ext/test-frame.rb
++++ b/test/debugger-ext/test-frame.rb
+@@ -87,6 +87,7 @@ class TestFrame < Test::Unit::TestCase
+
+         tf_prev = tf.prev
+         assert(tf_prev.pc_offset > 0, "Should be valid PC offset for prev")
++        assert_equal('trace', tf_prev.iseq.op_at(tf_prev.pc_offset))
+
+         # 1.times creates a C frame.
+         1.times do
