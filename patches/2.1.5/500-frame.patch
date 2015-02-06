@@ -25,11 +25,7 @@ new file mode 100644
 index 0000000..95dd97b
 --- /dev/null
 +++ b/frame.c
-<<<<<<< HEAD
-@@ -0,0 +1,1168 @@
-=======
 @@ -0,0 +1,1133 @@
->>>>>>> 0ae2fcd779d10fee63f62703bfe51303514a1890
 +/*
 + * Copyright (C) 2012, 2014-2015 Rocky Bernstein
 + *
@@ -1026,18 +1022,10 @@ index 0000000..95dd97b
 +	  cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(cfp) ) ;
 +
 +    if (RUBY_VM_NORMAL_ISEQ_P(cfp->iseq)) {
-<<<<<<< HEAD
-+	/* One thing MRI line locations do that foul us up is to treat
-+	   the PC of a trace location as the previous instruction.
-+	   Since we allow breakpoints on trace locations which happen
-+	   *before* the trace is executed, we want to correct
-+	   locations here.
-=======
 +	/* One thing YARV line locations do that foul us up is to
 +	   treat the PC of a trace location as the previous instruction.
 +	   Since we allow breakpoints on trace locations which happen *before*
 +	   the trace is executed, we want to correct locations here.
->>>>>>> 0ae2fcd779d10fee63f62703bfe51303514a1890
 +	*/
 +	const rb_iseq_t *iseq = cfp->iseq;
 +	size_t pos = cfp->pc - iseq->iseq_encoded;

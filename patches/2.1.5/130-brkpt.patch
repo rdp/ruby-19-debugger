@@ -67,6 +67,19 @@ index b700c6e..dc14e28 100644
 +    Init_Brkpt();
 +
  }
+diff --git a/vm.inc b/vm.inc
+index 5d655f2..6304acb 100644
+--- a/vm.inc
++++ b/vm.inc
+@@ -1230,6 +1230,8 @@ INSN_ENTRY(trace){
+   rb_num_t nf = (rb_num_t)GET_OPERAND(1);
+
+   DEBUG_ENTER_INSN("trace");
++  TEST_AND_HANDLE_BREAKPOINT(GET_CFP(), GET_PC());
++
+   ADD_PC(1+1);
+   PREFETCH(GET_PC());
+   #define CURRENT_INSN_trace 1
 diff --git a/vm_core.h b/vm_core.h
 index e594569..5383551 100644
 --- a/vm_core.h
@@ -82,14 +95,13 @@ index e594569..5383551 100644
 
  enum ruby_special_exceptions {
 diff --git a/vm_exec.h b/vm_exec.h
-index 3de601f..6b677d5 100644
+index 3de601f..5dcf1a2 100644
 --- a/vm_exec.h
 +++ b/vm_exec.h
-@@ -17,12 +17,17 @@ typedef unsigned long lindex_t;
+@@ -17,6 +17,14 @@ typedef unsigned long lindex_t;
  typedef VALUE GENTRY;
  typedef rb_iseq_t *ISEQ;
 
--#ifdef __GCC__
 +/* Rocky: VM-assisted breakpoint handling. */
 +#define TEST_AND_HANDLE_BREAKPOINT(cfp, pc)				\
 +    if (UNLIKELY(cfp->iseq &&						\
@@ -98,16 +110,9 @@ index 3de601f..6b677d5 100644
 +	EXEC_EVENT_HOOK(th, RUBY_EVENT_BRKPT, cfp->self,		\
 +			0, 0, Qundef)
 +
+ #ifdef __GCC__
  /* TODO: machine dependent prefetch instruction */
--#define PREFETCH(pc)
--#else
--#define PREFETCH(pc)
--#endif
-+#define PREFETCH(pc)							\
-+    TEST_AND_HANDLE_BREAKPOINT(GET_CFP(), pc)
-
- #if VMDEBUG > 0
- #define debugs printf
+ #define PREFETCH(pc)
 diff --git a/vm_trace.c b/vm_trace.c
 index 2047d5a..2cea5f2 100644
 --- a/vm_trace.c
