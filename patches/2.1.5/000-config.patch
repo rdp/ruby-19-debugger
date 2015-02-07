@@ -6,13 +6,15 @@ new file mode 100644
 index 0000000..d6b13d7
 --- /dev/null
 +++ b/test/debugger-ext/test-000-config.rb
-@@ -0,0 +1,13 @@
+@@ -0,0 +1,15 @@
 +#!/usr/bin/env ruby
 +require 'test/unit'
++require 'rbconfig'
 +
 +class TestAppUtil < Test::Unit::TestCase
 +  def test_basic
-+      output = `../../ruby --version`
++      ruby_prog = RbConfig::CONFIG["RUBY_INSTALL_NAME"]
++      output = `../../#{ruby_prog} --version`
 +      assert_match(/with debugger support/, output,
 +                   'Banner to reflect debugger support')
 +      cmd=%q(../../miniruby -e 'load "../../rbconfig.rb"; include RbConfig; puts CONFIG["rb-threadframe"]')

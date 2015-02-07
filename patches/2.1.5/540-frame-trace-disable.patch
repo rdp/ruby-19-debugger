@@ -27,29 +27,33 @@ be placed anywhere in the debugger() method anywhere after the frame
 tracing is turned off in the debugger() method.
 diff --git a/vm_insnhelper.c b/vm_insnhelper.c
 index c6ce5d0..0098240 100644
+diff --git a/vm_insnhelper.c b/vm_insnhelper.c
+index cceefdb..fecf702 100644
 --- a/vm_insnhelper.c
 +++ b/vm_insnhelper.c
-@@ -45,6 +45,10 @@ vm_push_frame(rb_thread_t *th,
+@@ -45,6 +45,12 @@ vm_push_frame(rb_thread_t *th,
  {
      rb_control_frame_t *const cfp = th->cfp - 1;
      int i;
-+    short int trace_disable = 0;
++    short int trace_frame_flags = 0;
 +
-+    if (type != VM_FRAME_MAGIC_TOP)
-+      trace_disable = th->cfp->trace_disable;
++    if (type != VM_FRAME_MAGIC_TOP) {
++      trace_frame_flags = th->cfp->trace_frame_flags &
++	  VM_FRAME_TRACE_OFF_CALLS;
++    }
 
      /* check stack overflow */
      CHECK_VM_STACK_OVERFLOW0(cfp, sp, local_size + (int)stack_max);
-@@ -75,6 +79,7 @@ vm_push_frame(rb_thread_t *th,
+@@ -75,6 +81,7 @@ vm_push_frame(rb_thread_t *th,
      cfp->block_iseq = 0;
      cfp->proc = 0;
      cfp->me = me;
-+    cfp->trace_disable = trace_disable & VM_FRAME_TRACE_OFF;
++    cfp->trace_frame_flags = trace_frame_flags & VM_FRAME_TRACE_OFF;
      if (klass) {
  	cfp->klass = klass;
      }
 diff --git a/vm_trace.c b/vm_trace.c
-index 1c2c559..8e8ac4b 100644
+index 2047d5a..bd66c8f 100644
 --- a/vm_trace.c
 +++ b/vm_trace.c
 @@ -10,7 +10,7 @@
@@ -61,12 +65,13 @@ index 1c2c559..8e8ac4b 100644
   *
   * (1) set_trace_func internal mechanisms
   *     and C level API
-@@ -260,6 +260,19 @@ exec_hooks_body(rb_thread_t *th, rb_hook_list_t *list, const rb_trace_arg_t *tra
+@@ -260,6 +260,20 @@ exec_hooks_body(rb_thread_t *th, rb_hook_list_t *list, const rb_trace_arg_t *tra
  {
      rb_event_hook_t *hook;
 
-+    if (UNLIKELY(th->cfp->trace_disable)) {
-+	if (! (UNLIKELY(th->cfp->trace_disable & VM_FRAME_TRACE_RETURN) &&
++    if (UNLIKELY(th->cfp->trace_frame_flags)) {
++	if (! (UNLIKELY(th->cfp->trace_frame_flags &
++			VM_FRAME_TRACE_ON_RETURN) &&
 +	       (trace_arg->event &
 +		(RUBY_EVENT_C_RETURN |
 +		 RUBY_EVENT_RETURN |
@@ -88,7 +93,7 @@ index 1c2c559..8e8ac4b 100644
 +    /* Set to make sure we don't trace ourselves.
 +       Really, it's just the c-return that would get traced */
 +    rb_thread_t *th = GET_THREAD();
-+    th->cfp->trace_disable = VM_FRAME_TRACE_OFF_1;
++    th->cfp->trace_frame_flags = VM_FRAME_TRACE_OFF_THIS_FRAME;
 +
      tp = tpptr(tpval);
 

@@ -22,10 +22,10 @@ index cb9b47b..1b14ce2 100644
  		$(BUILTIN_TRANSOBJS) \
 diff --git a/frame.c b/frame.c
 new file mode 100644
-index 0000000..95dd97b
+index 0000000..dcf6b58
 --- /dev/null
 +++ b/frame.c
-@@ -0,0 +1,1171 @@
+@@ -0,0 +1,1199 @@
 +/*
 + * Copyright (C) 2012, 2014-2015 Rocky Bernstein
 + *
@@ -560,15 +560,33 @@ index 0000000..95dd97b
 +}
 +
 +VALUE
++rb_frame_trace_step_over(VALUE klass)
++{
++    FRAME_SETUP_WITH_ERROR ;
++
++    tf->cfp->trace_frame_flags |= VM_FRAME_TRACE_STEP_OVER;
++    return klass;
++}
++
++VALUE
++rb_frame_trace_step_out(VALUE klass)
++{
++    FRAME_SETUP_WITH_ERROR ;
++
++    tf->cfp->trace_frame_flags |= VM_FRAME_TRACE_STEP_OUT;
++    return klass;
++}
++
++VALUE
 +rb_frame_return_stop_set(VALUE klass, VALUE boolval)
 +{
 +    short int boolmask = !(NIL_P(boolval) || Qfalse == boolval);
 +    FRAME_SETUP_WITH_ERROR ;
 +
 +    if (boolmask)
-+	tf->cfp->trace_disable |=  VM_FRAME_TRACE_RETURN;
++	tf->cfp->trace_frame_flags |=  VM_FRAME_TRACE_ON_RETURN;
 +    else
-+	tf->cfp->trace_disable &= ~VM_FRAME_TRACE_RETURN;
++	tf->cfp->trace_frame_flags &= ~VM_FRAME_TRACE_ON_RETURN;
 +    return boolval;
 +}
 +
@@ -579,22 +597,22 @@ index 0000000..95dd97b
 +    FRAME_SETUP_WITH_ERROR ;
 +
 +    if (boolmask)
-+	tf->cfp->trace_disable |=  VM_FRAME_TRACE_OFF;
++	tf->cfp->trace_frame_flags |=  VM_FRAME_TRACE_OFF;
 +    else
-+	tf->cfp->trace_disable &= ~VM_FRAME_TRACE_OFF;
++	tf->cfp->trace_frame_flags &= ~VM_FRAME_TRACE_OFF;
 +    return boolval;
 +}
 +
 +VALUE
-+rb_frame_trace_off_1_set(VALUE klass, VALUE boolval)
++rb_frame_trace_off_this_frame_set(VALUE klass, VALUE boolval)
 +{
 +    short int boolmask = !(NIL_P(boolval) || Qfalse == boolval);
 +    FRAME_SETUP_WITH_ERROR ;
 +
 +    if (boolmask)
-+	tf->cfp->trace_disable |=  VM_FRAME_TRACE_OFF_1;
++	tf->cfp->trace_frame_flags |=  VM_FRAME_TRACE_OFF_THIS_FRAME;
 +    else
-+	tf->cfp->trace_disable &= ~VM_FRAME_TRACE_OFF_1;
++	tf->cfp->trace_frame_flags &= ~VM_FRAME_TRACE_OFF_THIS_FRAME;
 +    return boolval;
 +}
 +
@@ -602,7 +620,7 @@ index 0000000..95dd97b
 +rb_frame_is_return_stop(VALUE klass)
 +{
 +    FRAME_SETUP_WITH_ERROR ;
-+    return (tf->cfp->trace_disable & VM_FRAME_TRACE_RETURN) ?
++    return (tf->cfp->trace_frame_flags & VM_FRAME_TRACE_ON_RETURN) ?
 +	Qtrue : Qfalse;
 +}
 +
@@ -610,14 +628,22 @@ index 0000000..95dd97b
 +rb_frame_is_trace_off(VALUE klass)
 +{
 +    FRAME_SETUP_WITH_ERROR ;
-+    return (tf->cfp->trace_disable & VM_FRAME_TRACE_OFF) ? Qtrue : Qfalse;
++    return ((tf->cfp->trace_frame_flags & VM_FRAME_TRACE_OFF) ==
++	    VM_FRAME_TRACE_OFF) ? Qtrue : Qfalse;
 +}
 +
 +VALUE
-+rb_frame_is_trace_off_1(VALUE klass)
++rb_frame_is_trace_off_calls(VALUE klass)
 +{
 +    FRAME_SETUP_WITH_ERROR ;
-+    return (tf->cfp->trace_disable & VM_FRAME_TRACE_OFF_1) ?
++    return ((tf->cfp->trace_frame_flags & VM_FRAME_TRACE_OFF) ==
++	    VM_FRAME_TRACE_OFF) ? Qtrue : Qfalse;
++}
++VALUE
++rb_frame_is_trace_off_this_frame(VALUE klass)
++{
++    FRAME_SETUP_WITH_ERROR ;
++    return (tf->cfp->trace_frame_flags & VM_FRAME_TRACE_OFF_THIS_FRAME) ?
 +	Qtrue : Qfalse;
 +}
 +
@@ -1184,10 +1210,12 @@ index 0000000..95dd97b
 +
 +    rb_define_method(rb_cFrame, "thread",       rb_frame_thread, 0);
 +    rb_define_method(rb_cFrame, "trace_off?",   rb_frame_is_trace_off, 0);
++    rb_define_method(rb_cFrame, "trace_off_calls?",
++		     rb_frame_is_trace_off_calls, 0);
 +    rb_define_method(rb_cFrame, "trace_off=",   rb_frame_trace_off_set, 1);
-+    rb_define_method(rb_cFrame, "trace_off1?",  rb_frame_is_trace_off_1, 0);
++    rb_define_method(rb_cFrame, "trace_off1?",  rb_frame_is_trace_off_this_frame, 0);
 +    rb_define_method(rb_cFrame, "trace_off1=",
-+		     rb_frame_trace_off_1_set, 1);
++		     rb_frame_trace_off_this_frame_set, 1);
 +    rb_define_method(rb_cFrame, "type",         rb_frame_type, 0);
 +
 +    rb_define_method(rb_cFrame, "pc_offset=", frame_set_pc_offset, 1);
@@ -1521,36 +1549,58 @@ index 0000000..b330c3e
 +
 +end
 diff --git a/vm_core.h b/vm_core.h
-index dd89847..7904cd5 100644
+index 21c9aae..37916cf 100644
 --- a/vm_core.h
 +++ b/vm_core.h
-@@ -470,6 +470,9 @@ typedef struct rb_control_frame_struct {
-     rb_iseq_t *block_iseq;	/* cfp[7] / block[3] */
+@@ -471,6 +471,11 @@ typedef struct rb_control_frame_struct {
      VALUE proc;			/* cfp[8] / block[4] */
      const rb_method_entry_t *me;/* cfp[9] */
-+    short int trace_disable;    /* Bits to disable per-frame event tracing.
-+				   See VM_FRAME_TRACE_xxx defines.
-+				 */
 
++    /* Bits to for per-frame event tracing.
++       See VM_FRAME_TRACE_xxx defines.
++    */
++    short int trace_frame_flags;
++
  #if VM_DEBUG_BP_CHECK
      VALUE *bp_check;		/* cfp[10] */
-@@ -792,6 +791,13 @@ enum vm_special_object_type {
+ #endif
+@@ -792,6 +797,33 @@ enum vm_special_object_type {
 
  #define VM_FRAME_TYPE(cfp) ((cfp)->flag & VM_FRAME_MAGIC_MASK)
 
-+#define VM_FRAME_TRACE_RETURN 0x01  /* Call trace hook on return. */
-+#define VM_FRAME_TRACE_OFF    0x02  /* Turn of event hook tracing in this
-+				       frame and any frames created from
-+				       this one. */
-+#define VM_FRAME_TRACE_OFF_1  0x04  /* Turn of event hook tracing in this
-+				       frame only. */
++/* By default if we are tracing, we trace this frame too.
++   This is the implicit value 0
++*/
++/* Mask to turn off tracing for this frame. */
++#define VM_FRAME_TRACE_OFF_THIS_FRAME  0x01
++
++/* Mask to turn off tracing until for any frames called by the current
++ * frame. */
++#define VM_FRAME_TRACE_OFF_CALLS       0x02
++
++/* Mask to call hook on function return */
++#define VM_FRAME_TRACE_ON_RETURN       0x04
++
++/* Mask to implement a "step over" (next) command */
++#define VM_FRAME_TRACE_STEP_OVER \
++    VM_FRAME_TRACE_OFF_CALLS
++
++/* Mask to implement a "step out" (finish) command */
++#define VM_FRAME_TRACE_STEP_OUT  \
++    (VM_FRAME_TRACE_OFF_THIS_FRAME|VM_FRAME_TRACE_OFF_CALLS|VM_FRAME_TRACE_ON_RETURN)
++
++/* Mask to turn off tracing in this frame and any frames it calls. Like
++   VM_FRAME_STEP_OUT but does not stop on function return */
++#define VM_FRAME_TRACE_OFF  \
++    (VM_FRAME_TRACE_OFF_THIS_FRAME|VM_FRAME_TRACE_OFF_CALLS)
++
 +
  /* other frame flag */
  #define VM_FRAME_FLAG_PASSED  0x0100
  #define VM_FRAME_FLAG_FINISH  0x0200
 diff --git a/test/debugger-ext/test-frame-disable.rb b/test/debugger-ext/test-frame-disable.rb
 new file mode 100644
-index 0000000..bf50412
+index 0000000..2325266
 --- /dev/null
 +++ b/test/debugger-ext/test-frame-disable.rb
 @@ -0,0 +1,48 @@
@@ -1584,8 +1634,8 @@ index 0000000..bf50412
 +        trace.disable
 +        # p @events
 +        assert_equal [], @events
-+        frame.trace_off1 = true
 +        frame.trace_off = false
++        frame.trace_off1 = true
 +        assert_equal true, frame.trace_off1?
 +        assert_equal false, frame.trace_off?
 +        trace.enable
