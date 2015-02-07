@@ -354,10 +354,10 @@ index 44f0459..845ffd1 100644
  static const char *
 diff --git a/frame.c b/frame.c
 new file mode 100644
-index 0000000..9b284f1
+index 0000000..743de11
 --- /dev/null
 +++ b/frame.c
-@@ -0,0 +1,1206 @@
+@@ -0,0 +1,1216 @@
 +/*
 + * Copyright (C) 2012, 2014-2015 Rocky Bernstein
 + *
@@ -1399,9 +1399,19 @@ index 0000000..9b284f1
 +    }
 +
 +    if (RUBY_VM_NORMAL_ISEQ_P(cfp->iseq)) {
++	/* One thing MRI line locations do that foul us up is to
++	   treat the PC of a trace location as the previous instruction.
++	   Since we allow breakpoints on trace locations which happen *before*
++	   the trace is executed, we want to correct locations here.
++       */
 +	const rb_iseq_t *iseq = cfp->iseq;
 +	size_t pos = cfp->pc - iseq->iseq_encoded;
-+	const VALUE insn = iseq->iseq[pos];
++	VALUE insn = iseq->iseq[pos];
++	int is_trace = strncmp(insn_name(insn), "trace", sizeof("trace")) == 0;
++	if (is_trace) {
++	    /* printf("At trace instruction\n"); */
++	    pos++; /* Correct for subtraction in rb_iseq_line_no */
++	}
 +	return rb_ary_new3(1, INT2FIX(rb_iseq_line_no(iseq, pos)));
 +    } else
 +	return Qnil;
